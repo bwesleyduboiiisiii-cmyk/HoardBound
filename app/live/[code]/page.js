@@ -138,10 +138,16 @@ export default function LivePage() {
 
         {/* dragon */}
         <div className="card v-stage">
-          <div className="htop">The Hoard</div>
-          <div className="hamt">{fmt(room.hoard)} ◈</div>
-          <div className={`dragon ${room.rage >= 88 ? "wrath" : room.rage >= 50 ? "stir" : ""}`}>🐉</div>
-          <div className="tier" style={{ color: tier.c }}>{tier.n}</div>
+          <div className="v-stage-main">
+            <div className="v-dragon-col">
+              <div className={`dragon ${room.rage >= 88 ? "wrath" : room.rage >= 50 ? "stir" : ""}`}>🐉</div>
+              <div className="tier" style={{ color: tier.c }}>{tier.n}</div>
+            </div>
+            <div className="v-hoard-col">
+              <div className="htop">The Hoard</div>
+              <div className="hamt">{fmt(room.hoard)} ◈</div>
+            </div>
+          </div>
           <div className="ragebar"><span style={{ width: Math.min(100, room.rage) + "%" }} /></div>
           <div className="rage-cap"><span>DRAGON&apos;S RAGE</span><span>{room.rage} / 100</span></div>
         </div>

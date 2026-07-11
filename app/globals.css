@@ -224,6 +224,8 @@ body:has(.viewer){overflow:hidden}
 .v-stage .ragebar{width:min(560px,80%);height:20px;background:#0c0710;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
 .v-stage .ragebar>span{display:block;height:100%;width:0;border-radius:12px;background:linear-gradient(90deg,#f5c451,#e5622e 55%,#c8462a);transition:width .7s cubic-bezier(.2,.7,.2,1)}
 .v-stage .rage-cap{display:flex;justify-content:space-between;width:min(560px,80%);font-size:11px;color:var(--stone);margin-top:6px;letter-spacing:.08em}
+.v-stage-main{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%}
+.v-dragon-col,.v-hoard-col{display:flex;flex-direction:column;align-items:center;text-align:center}
 .v-feed{padding:6px 12px 12px;height:calc(100% - 44px);overflow:hidden;display:flex;flex-direction:column;gap:9px}
 .v-bottom{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center}
 .powers{display:flex;gap:10px;align-items:center;background:rgba(255,111,174,.08);border:1px solid #6b2f52;
@@ -282,6 +284,11 @@ body:has(.viewer){overflow:hidden}
   .v-main > .v-stage .dragon{font-size:clamp(56px,13vh,140px);margin:2px 0}
   .v-main > .v-stage .tier{font-size:clamp(12px,2.1vh,19px);margin-bottom:6px}
   .v-main > .v-stage .ragebar,.v-main > .v-stage .rage-cap{width:min(560px,92%)}
+  /* dragon status LEFT, coin count RIGHT */
+  .v-main > .v-stage .v-stage-main{flex-direction:row;justify-content:space-evenly;align-items:center;flex:1;min-height:0;gap:12px;padding:0 6px}
+  .v-main > .v-stage .v-dragon-col{flex:0 1 auto}
+  .v-main > .v-stage .v-hoard-col{flex:0 1 auto}
+  .v-main > .v-stage .tier{margin-bottom:0}
   /* standings + chronicle: fill their rows, scroll inside */
   .v-main > .card:first-child{grid-area:standings;min-height:0;display:flex;flex-direction:column}
   .v-main > .card:last-child{grid-area:chronicle;min-height:0;display:flex;flex-direction:column}
