@@ -1,0 +1,86 @@
+-- Hoardbound — Dragon's Hoard · Phase 2 schema
+-- Paste this whole file into Supabase → SQL Editor → Run.
+
+-- ---------- Tables ----------
+create table if not exists rooms (
+  id          uuid primary key default gen_random_uuid(),
+  code        text unique not null,
+  host_id     uuid not null,
+  status      text not null default 'lobby',   -- lobby | active | resolving | ended
+  round       int  not null default 0,
+  rage        int  not null default 0,
+  hoard       bigint not null default 50000,
+  double_next boolean not null default false,
+  created_at  timestamptz default now()
+);
+
+create table if not exists players (
+  id         uuid primary key default gen_random_uuid(),
+  room_id    uuid references rooms(id) on delete cascade,
+  name       text not null,
+  avatar     text,
+  is_bot     boolean default false,
+  persona    text,
+  gold       bigint default 0,
+  trust      int default 50,
+  warded     boolean default false,
+  pact_with  uuid,
+  last_take  bigint default 0,
+  connected  boolean default true,
+  created_at timestamptz default now()
+);
+
+create table if not exists moves (
+  id         uuid primary key default gen_random_uuid(),
+  room_id    uuid references rooms(id) on delete cascade,
+  player_id  uuid references players(id) on delete cascade,
+  round      int not null,
+  action     text not null,               -- sneak | grab | low | betray | idle
+  target_id  uuid,
+  created_at timestamptz default now(),
+  unique (room_id, player_id, round)
+);
+
+create table if not exists events (
+  id         uuid primary key default gen_random_uuid(),
+  room_id    uuid references rooms(id) on delete cascade,
+  round      int,
+  kind       text not null,               -- take|betray|betray_fail|oath|pact|scorch|awaken|director|gift
+  payload    jsonb,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_players_room on players(room_id);
+create index if not exists idx_moves_room_round on moves(room_id, round);
+create index if not exists idx_events_room on events(room_id, created_at);
+
+-- ---------- Realtime ----------
+alter publication supabase_realtime add table rooms;
+alter publication supabase_realtime add table players;
+alter publication supabase_realtime add table moves;
+alter publication supabase_realtime add table events;
+
+-- ---------- Row-level security ----------
+-- NOTE: These are permissive DEV policies so the app works immediately with the
+-- anon key. Before a public launch, harden per build bible §5.6 (host-only writes
+-- to rooms, players may only insert their own moves, etc.).
+alter table rooms   enable row level security;
+alter table players enable row level security;
+alter table moves   enable row level security;
+alter table events  enable row level security;
+
+do $$
+begin
+  if not exists (select 1 from pg_policies where policyname = 'dev_all_rooms') then
+    create policy dev_all_rooms   on rooms   for all using (true) with check (true);
+  end if;
+  if not exists (select 1 from pg_policies where policyname = 'dev_all_players') then
+    create policy dev_all_players on players for all using (true) with check (true);
+  end if;
+  if not exists (select 1 from pg_policies where policyname = 'dev_all_moves') then
+    create policy dev_all_moves   on moves   for all using (true) with check (true);
+  end if;
+  if not exists (select 1 from pg_policies where policyname = 'dev_all_events') then
+    create policy dev_all_events  on events  for all using (true) with check (true);
+  end if;
+end $$;
