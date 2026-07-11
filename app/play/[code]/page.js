@@ -1,9 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom } from "../../../lib/roomApi";
+import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
-import { rageTier, fmt, ROUNDS } from "../../../lib/game";
+import { rageTier, fmt, ROUNDS, eventText } from "../../../lib/game";
+
+const feedClass = (k) =>
+  k === "scorch" || k === "awaken" || k === "oath" || k === "betray_fail" ? "fire"
+  : k === "pact" ? "pact" : k === "gift" ? "gift" : k === "take" ? "gold" : "";
 
 const MOVES = [
   ["sneak","🪙 Sneak","Take a small, safe cut."],
@@ -23,6 +27,7 @@ export default function PlayPage() {
   const [myMove, setMyMove] = useState(null);
   const [betraying, setBetraying] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [events, setEvents] = useState([]);
   const roomRef = useRef(null); roomRef.current = room;
   const meRef = useRef(null); meRef.current = me;
 
@@ -49,6 +54,7 @@ export default function PlayPage() {
     if (fresh) setRoom(fresh);
     const ps = await getPlayers(r.id);
     setPlayers(ps);
+    setEvents(await getEvents(r.id, 20));
     const my = meRef.current;
     if (my && fresh?.round) {
       // still in the game?
@@ -172,6 +178,18 @@ export default function PlayPage() {
               <div className="who"><b>{p.avatar} {p.name}</b></div>
               <div className="g">{fmt(p.gold)} ◈</div>
             </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="label" style={{ marginBottom: 8 }}>📜 Chronicle</div>
+        <div className="feed">
+          {events.length === 0 && (
+            <div style={{ color: "var(--stone)", fontSize: 13 }}>No moves yet — the plunder is about to begin.</div>
+          )}
+          {events.map((e) => (
+            <div key={e.id} className={`fcard ${feedClass(e.kind)}`} dangerouslySetInnerHTML={{ __html: eventText(e) }} />
           ))}
         </div>
       </div>

@@ -5,7 +5,7 @@ import {
   createRoom, getPlayers, getEvents, getMoveCount, addBot,
   startRound, resolveRound, fireDirector, resetGame, subscribeRoom, uuid,
 } from "../../lib/roomApi";
-import { supabase } from "../../lib/supabaseClient";
+import { supabase, hasSupabase } from "../../lib/supabaseClient";
 import { ROUNDS, rageTier, fmt, eventText } from "../../lib/game";
 
 const DIRECTOR = [
@@ -26,6 +26,7 @@ export default function HostPage() {
   const [moveCount, setMoveCount] = useState(0);
   const [qr, setQr] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const roomRef = useRef(null);
   roomRef.current = room;
 
@@ -62,6 +63,11 @@ export default function HostPage() {
   }
 
   async function onCreate() {
+    setErr("");
+    if (!hasSupabase()) {
+      setErr("Supabase isn't connected yet. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local (or your Vercel env vars) and restart, then run supabase/schema.sql. See the README.");
+      return;
+    }
     setBusy(true);
     try {
       const r = await createRoom(hostId);
@@ -69,6 +75,14 @@ export default function HostPage() {
       setRoom(r);
       const url = `${window.location.origin}/play/${r.code}`;
       QRCode.toDataURL(url, { margin: 1, width: 300 }).then(setQr).catch(() => {});
+    } catch (e) {
+      const msg = e?.message || String(e);
+      if (/relation .*rooms.* does not exist/i.test(msg))
+        setErr("Connected to Supabase, but the tables don't exist yet. Run supabase/schema.sql in the Supabase SQL editor.");
+      else if (/api key|jwt|unauthorized|invalid/i.test(msg))
+        setErr("Supabase rejected the request — double-check your project URL and anon key.");
+      else
+        setErr("Couldn't create a game: " + msg);
     } finally { setBusy(false); }
   }
 
@@ -87,7 +101,16 @@ export default function HostPage() {
     return (
       <div className="landing">
         <div className="brand"><h1>HOARDBOUND</h1><div className="sub">HOST</div><div className="mode">◆ Dragon&apos;s Hoard ◆</div></div>
+        {!hasSupabase() && (
+          <div className="panel" style={{ borderColor: "#7a2a24", background: "rgba(229,83,60,.08)", marginBottom: 12, textAlign: "left" }}>
+            <div className="label" style={{ color: "#ff8a72" }}>⚠ Supabase not connected</div>
+            <div style={{ fontSize: 13, color: "var(--ash)", marginTop: 6, lineHeight: 1.5 }}>
+              This multiplayer version needs a database. Do the 5-minute setup in the README, then restart.
+            </div>
+          </div>
+        )}
         <button className="btn" disabled={busy || !hostId} onClick={onCreate}>{busy ? "Summoning…" : "Create a Game"}</button>
+        {err && <div className="panel" style={{ borderColor: "#7a2a24", background: "rgba(229,83,60,.08)", marginTop: 12, textAlign: "left", fontSize: 13, color: "#f0a58c", lineHeight: 1.5 }}>{err}</div>}
         <div className="note">Creates a room with a join code. Add bots to fill seats, share the code, then run the rounds.</div>
       </div>
     );
@@ -140,7 +163,7 @@ export default function HostPage() {
   const winner = ranked[0];
 
   return (
-    <div className="host-wrap">
+    <div className="host-wrap cockpit">
       <div className="brand">
         <h1 style={{ fontSize: 26 }}>HOARDBOUND</h1><div className="mode">◆ Dragon&apos;s Hoard · Host ◆</div>
       </div>
