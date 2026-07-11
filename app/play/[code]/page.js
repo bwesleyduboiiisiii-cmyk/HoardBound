@@ -3,11 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
-import { rageTier, fmt, ROUNDS, eventText } from "../../../lib/game";
-
-const feedClass = (k) =>
-  k === "scorch" || k === "awaken" || k === "oath" || k === "betray_fail" ? "fire"
-  : k === "pact" ? "pact" : k === "gift" ? "gift" : k === "take" ? "gold" : "";
+import { rageTier, fmt, ROUNDS } from "../../../lib/game";
+import Chronicle from "../../_components/Chronicle";
 
 const MOVES = [
   ["sneak","🪙 Sneak","Take a small, safe cut."],
@@ -55,7 +52,7 @@ export default function PlayPage() {
     if (fresh) setRoom(fresh);
     const ps = await getPlayers(r.id);
     setPlayers(ps);
-    setEvents(await getEvents(r.id, 20));
+    setEvents(await getEvents(r.id, 250));
     const my = meRef.current;
     if (my && fresh?.round) {
       // still in the game?
@@ -130,7 +127,14 @@ export default function PlayPage() {
         <div className="m"><div className="k">Gold</div><div className="v">{fmt(mine.gold)}</div></div>
         <div className="m"><div className="k">Trust</div><div className="v" style={{ color: "var(--bone)" }}>{mine.trust}</div></div>
         <div className="m"><div className="k">Rank</div><div className="v" style={{ color: "var(--bone)" }}>{myRank || "—"}</div></div>
-        <div className="m"><div className="k">Dragon</div><div className="v" style={{ color: tier.c, fontSize: 14, fontFamily: "'Cinzel',serif" }}>{tier.n}</div></div>
+      </div>
+
+      <div className="panel">
+        <div className="subbar" style={{ marginBottom: 8 }}>
+          <span className="label">Dragon&apos;s Rage</span>
+          <span style={{ color: tier.c, fontFamily: "'Cinzel',serif", fontSize: 13 }}>{tier.n} · {room.rage}/100</span>
+        </div>
+        <div className="meter"><span style={{ width: Math.min(100, room.rage) + "%" }} /></div>
       </div>
 
       {room.status === "lobby" && <div className="panel waiting">You&apos;re in. Waiting for the host to begin…</div>}
@@ -192,14 +196,7 @@ export default function PlayPage() {
 
       <div className="panel">
         <div className="label" style={{ marginBottom: 8 }}>📜 Chronicle</div>
-        <div className="feed">
-          {events.length === 0 && (
-            <div style={{ color: "var(--stone)", fontSize: 13 }}>No moves yet — the plunder is about to begin.</div>
-          )}
-          {events.map((e) => (
-            <div key={e.id} className={`fcard ${feedClass(e.kind)}`} dangerouslySetInnerHTML={{ __html: eventText(e) }} />
-          ))}
-        </div>
+        <Chronicle events={events} />
       </div>
     </div>
   );

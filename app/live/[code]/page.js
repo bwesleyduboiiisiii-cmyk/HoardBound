@@ -62,7 +62,7 @@ export default function LivePage() {
     const { data: fresh } = await supabase.from("rooms").select("*").eq("id", r.id).maybeSingle();
     if (fresh) setRoom(fresh);
     setPlayers(await getPlayers(r.id));
-    const evs = await getEvents(r.id, 14);
+    const evs = await getEvents(r.id, 24);
     setEvents(evs);
     // fire banner on a new significant event
     const newest = evs[0];
@@ -158,9 +158,11 @@ export default function LivePage() {
         <div className="card">
           <div className="chead">📜 The Chronicle</div>
           <div className="v-feed">
-            {events.map((e) => (
-              <div key={e.id} className={`fcard ${feedClass(e.kind)}`} dangerouslySetInnerHTML={{ __html: eventText(e) }} />
-            ))}
+            {events
+              .filter((e) => !(e.kind === "move" && ["sneak", "low", "idle"].includes(e.payload?.action)))
+              .map((e) => (
+                <div key={e.id} className={`fcard ${feedClass(e.kind)}`} dangerouslySetInnerHTML={{ __html: eventText(e) }} />
+              ))}
           </div>
         </div>
       </div>

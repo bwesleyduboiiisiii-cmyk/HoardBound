@@ -7,17 +7,14 @@ import {
   startRound, resolveRound, fireDirector, resetGame, endGame, subscribeRoom, uuid,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
-import { ROUNDS, rageTier, fmt, eventText } from "../../lib/game";
+import { ROUNDS, rageTier, fmt } from "../../lib/game";
+import Chronicle from "../_components/Chronicle";
 
 const DIRECTOR = [
   ["meteor","☄️ Meteor Shower"],["double","✨ Double Rewards"],
   ["wake","🐉 Wake the Dragon"],["reverse","🔄 Reverse Standings"],
   ["curse","💀 Curse the Richest"],["bless","🕊️ Bless the Poorest"],
 ];
-const feedClass = (k) =>
-  k === "scorch" || k === "awaken" || k === "oath" || k === "betray_fail" ? "fire"
-  : k === "pact" ? "pact" : k === "gift" ? "gift"
-  : k === "take" ? "gold" : "";
 
 export default function HostPage() {
   const router = useRouter();
@@ -60,7 +57,7 @@ export default function HostPage() {
     const { data: fresh } = await supabase.from("rooms").select("*").eq("id", r.id).maybeSingle();
     if (fresh) setRoom(fresh);
     setPlayers(await getPlayers(r.id));
-    setEvents(await getEvents(r.id, 14));
+    setEvents(await getEvents(r.id, 250));
     if (fresh?.round) setMoveCount(await getMoveCount(r.id, fresh.round));
   }
 
@@ -237,11 +234,7 @@ export default function HostPage() {
         </div>
         <div className="panel logpanel">
           <div className="label" style={{ marginBottom: 10 }}>📜 Chronicle</div>
-          <div className="feed">
-            {events.map((e) => (
-              <div key={e.id} className={`fcard ${feedClass(e.kind)}`} dangerouslySetInnerHTML={{ __html: eventText(e) }} />
-            ))}
-          </div>
+          <Chronicle events={events} />
         </div>
       </div>
 
