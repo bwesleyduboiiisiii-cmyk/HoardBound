@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { getRoomByCode, getPlayers, getEvents, subscribeRoom } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL } from "../../../lib/game";
@@ -26,6 +26,7 @@ function bannerFor(e) {
 
 export default function LivePage() {
   const params = useParams();
+  const router = useRouter();
   const code = String(params.code || "").toUpperCase();
   const [room, setRoom] = useState(null);
   const [players, setPlayers] = useState([]);
@@ -99,6 +100,7 @@ export default function LivePage() {
 
   return (
     <div className={`viewer ${transparent ? "transparent" : ""}`}>
+      <button className="navback subtle" onClick={() => router.push("/")}>‹</button>
       <div className="v-top">
         <div className="brand">
           <span className="live-pill"><span className="dot" />LIVE</span>

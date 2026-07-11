@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, ROUNDS, eventText } from "../../../lib/game";
@@ -18,6 +18,7 @@ const MOVES = [
 
 export default function PlayPage() {
   const params = useParams();
+  const router = useRouter();
   const code = String(params.code || "").toUpperCase();
   const [room, setRoom] = useState(null);
   const [players, setPlayers] = useState([]);
@@ -81,6 +82,11 @@ export default function PlayPage() {
     refresh();
   }
 
+  function leave() {
+    localStorage.removeItem("hb_player_" + code);
+    router.push("/");
+  }
+
   // ---- states ----
   if (err) return <div className="play-wrap"><div className="waiting">{err}</div></div>;
   if (!room) return <div className="play-wrap"><div className="waiting">Finding the table…</div></div>;
@@ -88,6 +94,7 @@ export default function PlayPage() {
   if (!me) {
     return (
       <div className="play-wrap">
+        <div className="topbar-row"><button className="navback" onClick={() => router.push("/")}>‹ Back</button></div>
         <div className="brand" style={{ textAlign: "center" }}>
           <h1 style={{ fontSize: 30 }}>HOARDBOUND</h1><div className="mode">◆ Room {code} ◆</div>
         </div>
@@ -113,6 +120,7 @@ export default function PlayPage() {
 
   return (
     <div className="play-wrap">
+      <div className="topbar-row"><button className="navback" onClick={leave}>‹ Leave game</button></div>
       <div className="brand" style={{ textAlign: "center" }}>
         <h1 style={{ fontSize: 26 }}>{mine.avatar} {mine.name}</h1>
         <div className="mode">◆ Room {code} · Round {room.round || "—"}/{ROUNDS} ◆</div>

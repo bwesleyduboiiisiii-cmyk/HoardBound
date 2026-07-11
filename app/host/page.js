@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import {
   createRoom, getPlayers, getEvents, getMoveCount, addBot,
-  startRound, resolveRound, fireDirector, resetGame, subscribeRoom, uuid,
+  startRound, resolveRound, fireDirector, resetGame, endGame, subscribeRoom, uuid,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
 import { ROUNDS, rageTier, fmt, eventText } from "../../lib/game";
@@ -19,6 +20,7 @@ const feedClass = (k) =>
   : k === "take" ? "gold" : "";
 
 export default function HostPage() {
+  const router = useRouter();
   const [hostId, setHostId] = useState(null);
   const [room, setRoom] = useState(null);
   const [players, setPlayers] = useState([]);
@@ -95,6 +97,16 @@ export default function HostPage() {
   async function onNext() { await startRound(room.id, room.round + 1); }
   async function onDirector(kind) { await fireDirector(room, kind); }
   async function onReset() { await resetGame(room.id); setEvents([]); }
+  async function onEnd() {
+    if (!window.confirm("End this game now? It'll jump to the final standings.")) return;
+    await endGame(room.id);
+  }
+  function onLeave() {
+    if ((room.status === "active" || room.status === "resolving") &&
+        !window.confirm("Leave this game? You can rejoin, or use End Game to finish it first.")) return;
+    localStorage.removeItem("hb_room");
+    setRoom(null);
+  }
 
   // ---------- render ----------
   if (!room) {
@@ -152,7 +164,10 @@ export default function HostPage() {
         <button className="btn" disabled={players.length < 2} onClick={onStart}>
           {players.length < 2 ? "Need 2+ hunters" : "Begin the Plunder"}
         </button>
-        <button className="btn ghost" onClick={onReset}>Reset Room</button>
+        <div className="dock-actions">
+          <button className="btn ghost" onClick={onLeave}>⟵ Leave</button>
+          <button className="btn ghost" onClick={onReset}>Reset Room</button>
+        </div>
       </div>
     );
   }
@@ -254,6 +269,11 @@ export default function HostPage() {
               <button className="btn" onClick={onReset}>New Game</button>
             </>
           )}
+          <div className="dock-actions">
+            <button className="btn ghost" onClick={onLeave}>⟵ Leave</button>
+            {(room.status === "active" || room.status === "resolving") &&
+              <button className="btn ghost danger" onClick={onEnd}>⛔ End Game</button>}
+          </div>
         </div>
       </div>
     </div>

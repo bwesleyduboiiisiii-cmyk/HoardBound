@@ -42,6 +42,16 @@ a{color:inherit;text-decoration:none}
   border:1px solid var(--stroke);font-size:13px;padding:11px}
 .btn.ghost:hover{border-color:var(--amethyst)}
 .btn.wide{max-width:340px}
+.btn.ghost.danger{border-color:#7a2a24;color:#ff8a72}
+.btn.ghost.danger:hover{border-color:var(--bad);background:rgba(229,83,60,.08)}
+.dock-actions{display:flex;gap:8px;margin-top:10px}
+.dock-actions .btn{flex:1;width:auto;margin:0}
+.topbar-row{display:flex;align-items:center;justify-content:flex-start;margin-bottom:8px}
+.navback{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);border:1px solid var(--stroke);
+  color:var(--ash);border-radius:20px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Barlow'}
+.navback:hover{border-color:var(--amethyst);color:var(--bone)}
+.navback.subtle{position:absolute;top:14px;left:14px;z-index:20;opacity:.25;padding:4px 11px;font-size:15px}
+.navback.subtle:hover{opacity:1}
 
 /* ---- Meter / dragon ---- */
 .meter{height:12px;background:#0c0710;border:1px solid var(--stroke);border-radius:8px;overflow:hidden}
