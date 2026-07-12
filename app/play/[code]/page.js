@@ -27,6 +27,9 @@ export default function PlayPage() {
   const [targeting, setTargeting] = useState(null);
   const [busy, setBusy] = useState(false);
   const [events, setEvents] = useState([]);
+  const [giftToast, setGiftToast] = useState(null);
+  const lastGift = useRef(undefined);
+  const giftTimer = useRef(null);
   const roomRef = useRef(null); roomRef.current = room;
   const meRef = useRef(null); meRef.current = me;
 
@@ -43,7 +46,8 @@ export default function PlayPage() {
     if (!room?.id) return;
     refresh();
     const unsub = subscribeRoom(room.id, refresh);
-    return unsub;
+    const poll = setInterval(refresh, 9000); // safety net if realtime drops
+    return () => { unsub && unsub(); clearInterval(poll); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id, me?.id]);
 
@@ -62,7 +66,26 @@ export default function PlayPage() {
     if (fresh) setRoom(fresh);
     const ps = await getPlayers(r.id);
     setPlayers(ps);
-    setEvents(await getEvents(r.id, 250));
+    const evs = await getEvents(r.id, 250);
+    setEvents(evs);
+    // gift toast + haptics on a newly-arrived gift
+    const g = evs.find((e) => e.kind === "gift");
+    if (g) {
+      if (lastGift.current === undefined) lastGift.current = g.id; // first load: don't replay old gifts
+      else if (g.id !== lastGift.current) {
+        lastGift.current = g.id;
+        const p = g.payload || {};
+        const myName = meRef.current && meRef.current.name;
+        setGiftToast({
+          label: p.label || "🎁 Gift",
+          text: p.effect ? `${p.effect} — ${p.text}` : p.text,
+          mine: !!(myName && (p.names || []).includes(myName)),
+        });
+        try { if (navigator.vibrate) navigator.vibrate([40, 30, 60]); } catch (e) {}
+        clearTimeout(giftTimer.current);
+        giftTimer.current = setTimeout(() => setGiftToast(null), 4500);
+      }
+    }
     const my = meRef.current;
     if (my && fresh?.round) {
       // still in the game?
@@ -127,6 +150,12 @@ export default function PlayPage() {
 
   return (
     <div className="play-wrap">
+      {giftToast && (
+        <div className={`play-gift-toast ${giftToast.mine ? "mine" : ""}`}>
+          <div className="pg-label">{giftToast.label}{giftToast.mine ? " · for you!" : ""}</div>
+          <div className="pg-text">{giftToast.text}</div>
+        </div>
+      )}
       <div className="topbar-row"><button className="navback" onClick={leave}>‹ Leave game</button></div>
       <div className="brand" style={{ textAlign: "center" }}>
         <h1 style={{ fontSize: 26 }}>{mine.avatar} {mine.name}</h1>

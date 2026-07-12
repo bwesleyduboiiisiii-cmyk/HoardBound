@@ -30,6 +30,7 @@ export default function Home() {
           Host on desktop, add the viewer overlay to OBS at <b>/live/CODE</b>,<br />
           and players join from their phones with the room code.
         </div>
+        <button className="leaders-link" onClick={() => router.push("/leaders")}>🏆 Season Leaderboard</button>
       </div>
     </div>
   );

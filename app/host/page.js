@@ -30,6 +30,8 @@ export default function HostPage() {
   const [botName, setBotName] = useState("");
   const [auto, setAuto] = useState(false);
   const [speedIdx, setSpeedIdx] = useState(1);
+  const [timerIdx, setTimerIdx] = useState(0);
+  const [countdown, setCountdown] = useState(null);
   const roomRef = useRef(null);
   roomRef.current = room;
   const stepping = useRef(false);
@@ -39,6 +41,12 @@ export default function HostPage() {
     { label: "Slow", ms: 6000 },
     { label: "Normal", ms: 4000 },
     { label: "Fast", ms: 2000 },
+  ];
+  const TIMERS = [
+    { label: "Off", secs: 0 },
+    { label: "20s", secs: 20 },
+    { label: "30s", secs: 30 },
+    { label: "45s", secs: 45 },
   ];
   // boot: restore host + room
   useEffect(() => {
@@ -58,7 +66,8 @@ export default function HostPage() {
     if (!room?.id) return;
     refresh();
     const unsub = subscribeRoom(room.id, refresh);
-    return unsub;
+    const poll = setInterval(refresh, 9000); // safety net if realtime drops
+    return () => { unsub && unsub(); clearInterval(poll); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id]);
 
@@ -130,6 +139,29 @@ export default function HostPage() {
     }, SPEEDS[speedIdx].ms);
     return () => clearTimeout(t);
   }, [auto, room && room.status, room && room.round, speedIdx]);
+
+  // Round timer: when enabled (and autoplay is off), count down and auto-resolve at 0.
+  useEffect(() => {
+    const secs = TIMERS[timerIdx].secs;
+    if (room && room.status === "active" && secs > 0 && !auto) setCountdown(secs);
+    else setCountdown(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room && room.status, room && room.round, timerIdx, auto]);
+
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) {
+      const r = roomRef.current;
+      if (r && r.status === "active" && !stepping.current) {
+        stepping.current = true;
+        onResolve().finally(() => { stepping.current = false; });
+      }
+      setCountdown(null);
+      return;
+    }
+    const t = setTimeout(() => setCountdown((c) => (c === null ? null : c - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
 
   async function onDirector(kind) { await fireDirector(room, kind); }
   async function onGift(type) {
@@ -325,7 +357,7 @@ export default function HostPage() {
           {room.status === "active" && (
             <>
               <div className="subbar" style={{ marginBottom: 10 }}>
-                <span className="label">Round {room.round} in play</span>
+                <span className="label">Round {room.round} in play{countdown !== null && <span style={{ color: "var(--gold)", marginLeft: 8 }}>⏳ auto-resolve in 0:{String(countdown).padStart(2, "0")}</span>}</span>
                 <span style={{ color: "var(--ash)", fontSize: 12 }}>{moveCount} / {humans} humans moved · bots auto</span>
               </div>
               <button className="btn" disabled={busy} onClick={onResolve}>{busy ? "The dice fall…" : "Resolve Round"}</button>
@@ -350,6 +382,9 @@ export default function HostPage() {
               </button>
               <button className="btn ghost" onClick={() => setSpeedIdx((i) => (i + 1) % SPEEDS.length)} title="Autoplay speed">
                 ⏱ {SPEEDS[speedIdx].label}
+              </button>
+              <button className="btn ghost" onClick={() => setTimerIdx((i) => (i + 1) % TIMERS.length)} title="Round timer (auto-resolves)">
+                ⏲ {TIMERS[timerIdx].label}
               </button>
             </div>
           )}

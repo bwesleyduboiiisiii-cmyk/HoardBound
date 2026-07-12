@@ -88,3 +88,19 @@ end $$;
 
 -- Gift power-ups: round modifiers (safe to run on existing rooms tables)
 alter table rooms add column if not exists modifiers jsonb not null default '{}'::jsonb;
+
+-- ---------- Season leaderboard (persistent, keyed by hunter name) ----------
+create table if not exists leaders (
+  name       text primary key,
+  games      int not null default 0,
+  wins       int not null default 0,
+  total_gold bigint not null default 0,
+  best_gold  bigint not null default 0,
+  updated_at timestamptz not null default now()
+);
+alter table leaders enable row level security;
+do $$ begin
+  if not exists (select 1 from pg_policies where policyname = 'dev_all_leaders') then
+    create policy dev_all_leaders on leaders for all using (true) with check (true);
+  end if;
+end $$;

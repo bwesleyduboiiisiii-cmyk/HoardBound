@@ -18,7 +18,10 @@ function bannerFor(e) {
       ? { big: "THE DRAGON AWAKENS", small: `${p.victims.join(" & ")} burned for their greed`, cls: "fire" }
       : { big: "THE DRAGON STIRS", small: "The wary slipped into shadow", cls: "fire" };
     case "oath": return { big: "OATH BROKEN", small: `⚔ ${p.from} turned on ${p.to}`, cls: "fire" };
-    case "gift": return { big: p.label || "A GIFT!", small: p.effect ? `${p.effect} — ${p.text}` : p.text, cls: "gift" };
+    case "gift": {
+      const who = p.sender && p.sender !== "Host" ? `🎁 ${p.sender} · ` : "";
+      return { big: p.label || "A GIFT!", small: `${who}${p.effect ? `${p.effect} — ${p.text}` : p.text}`, cls: "gift" };
+    }
     case "director": return { big: p.label, small: p.text, cls: "pact" };
     default: return null;
   }
@@ -53,7 +56,8 @@ export default function LivePage() {
     if (!room?.id) return;
     refresh();
     const unsub = subscribeRoom(room.id, refresh);
-    return unsub;
+    const poll = setInterval(refresh, 9000); // safety net if realtime drops
+    return () => { unsub && unsub(); clearInterval(poll); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id]);
 
@@ -98,6 +102,11 @@ export default function LivePage() {
 
   const tier = rageTier(room.rage);
   const winner = players.slice().sort((a, b) => b.gold - a.gold)[0];
+  const patrons = (() => {
+    const tally = {};
+    for (const e of events) if (e.kind === "gift") { const s = e.payload && e.payload.sender; if (s) tally[s] = (tally[s] || 0) + 1; }
+    return Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  })();
 
   return (
     <div className={`viewer ${transparent ? "transparent" : ""}`}>
@@ -169,8 +178,14 @@ export default function LivePage() {
       </div>
 
       <div className="v-bottom">
+        {patrons.length > 0 && (
+          <div className="patrons">
+            <span className="pk">👑 Top Patrons</span>
+            {patrons.map(([nm, n]) => <span key={nm} className="patron">{nm} <b>×{n}</b></span>)}
+          </div>
+        )}
         <div className="hint">Players join at <b style={{ color: "var(--ash)" }}>/play/{code}</b></div>
-        <div className="powers">🌹 <span className="k">Gift Roses</span> to bless a hunter · ☄️ <span className="k">Storm</span> to strike the greedy</div>
+        <div className="powers">🌹 Rose · 🫰 Finger Heart · 🧸 Hi Bear · 🍩 Doughnut — <span className="k">viewer gifts change the game live</span></div>
       </div>
 
       <div className={`flash ${flash ? "go" : ""}`} key={flash} />
