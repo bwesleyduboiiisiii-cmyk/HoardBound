@@ -27,9 +27,18 @@ export default function HostPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [gift, setGift] = useState(null);
+  const [auto, setAuto] = useState(false);
+  const [speedIdx, setSpeedIdx] = useState(1);
   const roomRef = useRef(null);
   roomRef.current = room;
+  const stepping = useRef(false);
 
+  const SPEEDS = [
+    { label: "Slow", ms: 5000 },
+    { label: "Normal", ms: 3000 },
+    { label: "Fast", ms: 1500 },
+    { label: "Turbo", ms: 700 },
+  ];
   // boot: restore host + room
   useEffect(() => {
     let hid = localStorage.getItem("hb_host");
@@ -97,7 +106,26 @@ export default function HostPage() {
     setBusy(true);
     try { await resolveRound(room); await refresh(); } finally { setBusy(false); }
   }
-  async function onNext() { await startRound(room.id, room.round + 1); }
+  async function onNext() { await startRound(room.id, room.round + 1); await refresh(); }
+
+  // Autoplay: keep advancing rounds on a timer until the game ends or the host stops it.
+  useEffect(() => {
+    if (!auto || !room) return;
+    if (room.status === "ended") { setAuto(false); return; }
+    if (room.status !== "active" && room.status !== "resolving") return;
+    const t = setTimeout(async () => {
+      if (stepping.current) return;
+      stepping.current = true;
+      try {
+        const r = roomRef.current;
+        if (!r) return;
+        if (r.status === "active") await onResolve();
+        else if (r.status === "resolving") await onNext();
+      } finally { stepping.current = false; }
+    }, SPEEDS[speedIdx].ms);
+    return () => clearTimeout(t);
+  }, [auto, room && room.status, room && room.round, speedIdx]);
+
   async function onDirector(kind) { await fireDirector(room, kind); }
   async function onGift(type) {
     const alert = await fireGift(room, type, { senderName: "Host" });
@@ -291,6 +319,16 @@ export default function HostPage() {
               </div>
               <button className="btn" onClick={onReset}>New Game</button>
             </>
+          )}
+          {(room.status === "active" || room.status === "resolving") && (
+            <div className="auto-row">
+              <button className={`btn ghost auto-btn ${auto ? "on" : ""}`} onClick={() => setAuto((a) => !a)}>
+                {auto ? "⏸ Autoplay ON" : "▶ Autoplay"}
+              </button>
+              <button className="btn ghost" onClick={() => setSpeedIdx((i) => (i + 1) % SPEEDS.length)} title="Autoplay speed">
+                ⏱ {SPEEDS[speedIdx].label}
+              </button>
+            </div>
           )}
           <div className="dock-actions">
             <button className="btn ghost" onClick={onLeave}>⟵ Leave</button>

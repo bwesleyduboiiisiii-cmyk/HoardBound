@@ -421,3 +421,42 @@ body:has(.host-wrap.cockpit)::before{
 
 .banner.gift{border-color:var(--gold)}
 .banner.gift .big{color:var(--gold)}
+
+/* autoplay controls */
+.auto-row{display:flex;gap:8px;margin-top:10px}
+.auto-row .btn{flex:1;width:auto;margin:0}
+.auto-btn.on{background:linear-gradient(180deg,#1f3a2a,#12241a);border-color:var(--good);color:#8ef0b4;
+  box-shadow:0 0 14px rgba(80,220,140,.25) inset}
+
+/* landing splash on the painted lair */
+.landing-lair{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:24px;padding:40px 20px;position:relative;
+  background:radial-gradient(900px 500px at 50% -6%, rgba(120,72,175,.30), transparent 55%),
+    radial-gradient(1100px 700px at 50% 112%, rgba(229,98,46,.30), transparent 58%),
+    linear-gradient(180deg,#0c0714,#0a0812 55%,#0f0910)}
+.landing-logo{text-align:center;position:relative;z-index:2}
+.landing-logo h1{font-size:clamp(38px,11vw,60px)}
+.landing-logo .sub{margin-top:2px;letter-spacing:.4em}
+.landing-logo .mode{margin-top:6px}
+.landing-lair::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg, transparent 42%, rgba(6,4,12,.60) 60%, rgba(6,4,12,.98) 80%);opacity:0}
+.landing-controls{position:relative;z-index:2;width:100%;max-width:680px;text-align:center;
+  padding:26px 26px 22px;border-radius:16px;
+  background:linear-gradient(180deg, #150e24 0%, #0c0714 100%);
+  border:1px solid rgba(245,196,81,.45);
+  box-shadow:0 24px 70px rgba(0,0,0,.7), 0 0 34px rgba(139,92,246,.18) inset}
+.host-cta{font-size:19px;padding:17px;letter-spacing:.04em}
+.or-div{display:flex;align-items:center;gap:12px;color:var(--ash);font-size:12px;letter-spacing:.3em;margin:14px 0}
+.or-div::before,.or-div::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(245,196,81,.4),transparent)}
+.landing-controls .join{display:flex;gap:8px}
+.landing-controls input{flex:1;background:rgba(8,5,14,.85);border:1px solid #5a4326;border-radius:12px;
+  color:var(--bone);padding:0 16px;height:54px;font-family:'Barlow';font-size:15px;letter-spacing:.15em}
+.landing-controls input::placeholder{color:var(--stone)}
+.landing-controls .note{color:var(--stone);font-size:12px;margin-top:16px;line-height:1.6}
+/* desktop: painted lair splash with the baked logo; hide the text logo */
+@media (min-width:860px){
+  .landing-lair{justify-content:center;padding:30vh 20px 7vh;
+    background:url('/landing.jpg') center top/cover no-repeat}
+  .landing-logo{display:none}
+  .landing-lair::before{opacity:1}
+}
