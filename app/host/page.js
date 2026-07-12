@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import {
-  createRoom, getPlayers, getEvents, getMoveCount, addBot,
+  createRoom, getPlayers, getEvents, getMoveCount, addBot, renamePlayer,
   startRound, resolveRound, fireDirector, fireGift, resetGame, endGame, removePlayer, subscribeRoom, uuid,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
@@ -27,6 +27,7 @@ export default function HostPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [gift, setGift] = useState(null);
+  const [botName, setBotName] = useState("");
   const [auto, setAuto] = useState(false);
   const [speedIdx, setSpeedIdx] = useState(1);
   const roomRef = useRef(null);
@@ -95,7 +96,11 @@ export default function HostPage() {
     } finally { setBusy(false); }
   }
 
-  async function onAddBot() { await addBot(room.id, players); }
+  async function onAddBot() { await addBot(room.id, players, botName); setBotName(""); await refresh(); }
+  async function onRenameBot(p) {
+    const next = window.prompt(`Rename ${p.name} to:`, p.name);
+    if (next && next.trim()) { await renamePlayer(p.id, next); await refresh(); }
+  }
   async function onKick(p) {
     if (!window.confirm(`Remove ${p.name} from the lobby?`)) return;
     setPlayers((prev) => prev.filter((x) => x.id !== p.id));
@@ -201,12 +206,23 @@ export default function HostPage() {
                 <div className="who"><b>{p.name}{p.is_bot && <span className="badge b-bot">bot</span>}</b></div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ color: "var(--ash)", fontSize: 12 }}>{p.is_bot ? "ready" : (p.connected === false ? "offline" : "joined")}</span>
+                  {p.is_bot && <button className="kick" title={`Rename ${p.name}`} onClick={() => onRenameBot(p)}>✎</button>}
                   <button className="kick" title={`Remove ${p.name}`} onClick={() => onKick(p)}>✕</button>
                 </div>
               </div>
             ))}
           </div>
-          <button className="btn ghost" style={{ marginTop: 10 }} onClick={onAddBot}>+ Add a Bot Hunter</button>
+          <div className="addbot-row">
+            <input
+              className="addbot-input"
+              value={botName}
+              onChange={(e) => setBotName(e.target.value.slice(0, 18))}
+              placeholder="Bot name (optional)"
+              maxLength={18}
+              onKeyDown={(e) => e.key === "Enter" && onAddBot()}
+            />
+            <button className="btn ghost" style={{ width: "auto", padding: "0 20px", whiteSpace: "nowrap" }} onClick={onAddBot}>+ Add Bot</button>
+          </div>
         </div>
         <button className="btn" disabled={players.length < 2} onClick={onStart}>
           {players.length < 2 ? "Need 2+ hunters" : "Begin the Plunder"}

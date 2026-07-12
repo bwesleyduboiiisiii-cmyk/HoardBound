@@ -468,3 +468,10 @@ body:has(.host-wrap.cockpit)::before{
 .sbadge.ward{color:#9fe0c0;border-color:#2f6a52;background:rgba(80,220,140,.12)}
 .sbadge.ally{color:#7fd0c0;border-color:#2f6a6a;background:rgba(80,200,200,.12)}
 .sbadge.buff{color:var(--gold);border-color:#5a4326;background:rgba(245,196,81,.12)}
+
+/* add-bot with a name */
+.addbot-row{display:flex;gap:8px;margin-top:10px}
+.addbot-input{flex:1;background:var(--obsidian-2);border:1px solid var(--stroke);border-radius:12px;
+  color:var(--bone);padding:0 14px;height:46px;font-family:'Barlow';font-size:14px}
+.addbot-input::placeholder{color:var(--stone)}
+.addbot-input:focus{outline:none;border-color:var(--gold)}
