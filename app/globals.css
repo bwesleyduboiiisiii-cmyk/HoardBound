@@ -609,3 +609,9 @@ body:has(.host-wrap.cockpit)::before{
   box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 40px rgba(229,98,46,.35)}
 .narr-card.dragon .narr-kicker{color:#ff8a5c}
 .narr-card.dragon .narr-line{color:#ffd9c2}
+
+/* "all hunters moved" announcement */
+.announce-toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:70;
+  background:linear-gradient(180deg,#150e24,#0c0714);border:1px solid var(--gold);color:var(--bone);
+  padding:12px 22px;border-radius:999px;font-family:'Cinzel',serif;font-size:15px;
+  box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 22px rgba(245,196,81,.25);animation:giftPop .3s ease-out}

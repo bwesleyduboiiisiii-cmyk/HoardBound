@@ -7,7 +7,7 @@ import {
   startRound, resolveRound, fireDirector, fireGift, resetGame, endGame, removePlayer, subscribeRoom, uuid,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
-import { ROUNDS, rageTier, fmt, rageStage, GIFT_ORDER, GIFT_META, narrationLine } from "../../lib/game";
+import { ROUNDS, rageTier, fmt, rageStage, GIFT_ORDER, GIFT_META, narrationLine, dragonScorchLine } from "../../lib/game";
 import Chronicle from "../_components/Chronicle";
 import Avatar from "../_components/Avatar";
 
@@ -24,6 +24,8 @@ export default function HostPage() {
   const [players, setPlayers] = useState([]);
   const [events, setEvents] = useState([]);
   const [moveCount, setMoveCount] = useState(0);
+  const [announce, setAnnounce] = useState(null);
+  const announcedRound = useRef(0);
   const [qr, setQr] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -188,7 +190,9 @@ export default function HostPage() {
         lines.push({ text: hasVictims ? "You dared to touch my hoard?! Then BURN!" : "I stir… tread carefully, little thieves.", who: "dragon" });
         lines.push({ text, who: "narrator" });
       } else if (e.kind === "scorch") {
-        lines.push({ text, who: "dragon" });
+        const nm = e.payload && e.payload.name;
+        const amt = e.payload && e.payload.amount;
+        lines.push({ text: dragonScorchLine(nm, amt), who: "dragon" });
       } else {
         lines.push({ text, who: "narrator" });
       }
@@ -219,6 +223,26 @@ export default function HostPage() {
     return () => clearTimeout(safety);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [narration && narration.i]);
+
+  // When every human has submitted their move, the narrator calls it out (once per round).
+  useEffect(() => {
+    if (!room || room.status !== "active") return;
+    const humanCount = players.filter((p) => !p.is_bot).length;
+    if (humanCount > 0 && moveCount >= humanCount && announcedRound.current !== room.round) {
+      announcedRound.current = room.round;
+      const opts = [
+        "Every hunter has locked in their move.",
+        "All moves are cast — the reckoning nears.",
+        "The hunters have chosen. Resolve when you're ready.",
+        "That's everyone in. The fates are set for this round.",
+      ];
+      const line = opts[Math.floor(Math.random() * opts.length)];
+      setAnnounce(line);
+      speak(line, "narrator", () => {});
+      setTimeout(() => setAnnounce(null), 4500);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room && room.status, room && room.round, moveCount, players.length]);
 
   // Autoplay: keep advancing rounds on a timer until the game ends or the host stops it.
   // The ⏲ timer, when set, decides how long autoplay waits between steps; otherwise use the speed.
@@ -404,6 +428,9 @@ export default function HostPage() {
           </div>
         );
       })()}
+      {announce && (
+        <div className="announce-toast">📜 {announce}</div>
+      )}
       {gift && (
         <div className="gift-toast">
           <span className="gt-emoji">{gift.emoji}</span>
