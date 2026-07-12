@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import {
   createRoom, getPlayers, getEvents, getMoveCount, addBot,
-  startRound, resolveRound, fireDirector, resetGame, endGame, subscribeRoom, uuid,
+  startRound, resolveRound, fireDirector, resetGame, endGame, removePlayer, subscribeRoom, uuid,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
 import { ROUNDS, rageTier, fmt, rageStage } from "../../lib/game";
@@ -86,6 +86,11 @@ export default function HostPage() {
   }
 
   async function onAddBot() { await addBot(room.id, players); }
+  async function onKick(p) {
+    if (!window.confirm(`Remove ${p.name} from the lobby?`)) return;
+    setPlayers((prev) => prev.filter((x) => x.id !== p.id));
+    try { await removePlayer(p.id); } catch (e) { setErr(e.message); }
+  }
   async function onStart() { await startRound(room.id, 1); }
   async function onResolve() {
     setBusy(true);
@@ -152,7 +157,10 @@ export default function HostPage() {
               <div key={p.id} className="pl">
                 <div className="av">{p.avatar}</div>
                 <div className="who"><b>{p.name}{p.is_bot && <span className="badge b-bot">bot</span>}</b></div>
-                <div style={{ color: "var(--ash)", fontSize: 12 }}>{p.is_bot ? "ready" : "joined"}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ color: "var(--ash)", fontSize: 12 }}>{p.is_bot ? "ready" : "joined"}</span>
+                  <button className="kick" title={`Remove ${p.name}`} onClick={() => onKick(p)}>✕</button>
+                </div>
               </div>
             ))}
           </div>
