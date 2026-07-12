@@ -625,3 +625,10 @@ body:has(.host-wrap.cockpit)::before{
 .vsel{width:100%;background:rgba(8,5,14,.9);border:1px solid #5a4326;border-radius:10px;color:var(--bone);
   padding:11px 12px;font-family:'Barlow';font-size:14px;margin-top:4px}
 .vsel option{background:#0c0714;color:var(--bone)}
+
+/* player name editing */
+.name-edit{background:rgba(8,5,14,.9);border:1px solid var(--gold);border-radius:10px;color:var(--bone);
+  padding:6px 10px;font-family:'Cinzel',serif;font-size:18px;width:190px;text-align:center}
+.name-btn{background:rgba(245,196,81,.14);border:1px solid rgba(245,196,81,.5);color:var(--gold);
+  width:30px;height:30px;border-radius:8px;font-size:14px;cursor:pointer;line-height:1}
+.name-btn.ghost{background:transparent;border-color:var(--stroke);color:var(--ash)}

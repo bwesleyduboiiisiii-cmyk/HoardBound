@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents, setConnected, getPactOffers, getAvatarsByNames, updateAccountAvatar } from "../../../lib/roomApi";
+import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents, setConnected, getPactOffers, getAvatarsByNames, updateAccountAvatar, renamePlayer } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, ROUNDS, rageStage } from "../../../lib/game";
 import Chronicle from "../../_components/Chronicle";
@@ -44,6 +44,8 @@ export default function PlayPage() {
   const [name, setName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [account, setAccount] = useState(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
   const [avatars, setAvatars] = useState({});
   const avatarsRef = useRef({}); avatarsRef.current = avatars;
   const [err, setErr] = useState("");
@@ -177,6 +179,18 @@ export default function PlayPage() {
     localStorage.removeItem("hb_account");
     router.push("/");
   }
+  async function saveName() {
+    const clean = (nameDraft || "").trim().slice(0, 18);
+    if (!clean || !me) { setEditingName(false); return; }
+    try {
+      await renamePlayer(me.id, clean);
+      const next = { ...me, name: clean };
+      setMe(next);
+      localStorage.setItem("hb_player_" + code, JSON.stringify(next));
+      refresh();
+    } catch (e) {}
+    setEditingName(false);
+  }
 
   // ---- states ----
   if (err) return <div className="play-wrap"><div className="waiting">{err}</div></div>;
@@ -249,7 +263,21 @@ export default function PlayPage() {
       </div>
       <div className="brand" style={{ textAlign: "center" }}>
         <h1 style={{ fontSize: 26, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-          <Avatar url={av(mine)} emoji={mine.avatar} size={40} /> {mine.name}
+          <Avatar url={av(mine)} emoji={mine.avatar} size={40} />
+          {editingName ? (
+            <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              <input className="name-edit" autoFocus value={nameDraft} maxLength={18}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }} />
+              <button className="name-btn" onClick={saveName}>✓</button>
+              <button className="name-btn ghost" onClick={() => setEditingName(false)}>✕</button>
+            </span>
+          ) : (
+            <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+              {mine.name}
+              <button className="name-btn" title="Change your name" onClick={() => { setNameDraft(mine.name); setEditingName(true); }}>✎</button>
+            </span>
+          )}
         </h1>
         <div className="mode">◆ Room {code} · Round {room.round || "—"}/{ROUNDS} ◆</div>
       </div>
