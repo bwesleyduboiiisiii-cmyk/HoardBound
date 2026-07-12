@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents, setConnected, getPactOffers } from "../../../lib/roomApi";
+import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents, setConnected, getPactOffers, getAvatarsByNames, updateAccountAvatar } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, ROUNDS, rageStage } from "../../../lib/game";
 import Chronicle from "../../_components/Chronicle";
@@ -43,6 +43,9 @@ export default function PlayPage() {
   const [me, setMe] = useState(null);
   const [name, setName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(null);
+  const [account, setAccount] = useState(null);
+  const [avatars, setAvatars] = useState({});
+  const avatarsRef = useRef({}); avatarsRef.current = avatars;
   const [err, setErr] = useState("");
   const [myMove, setMyMove] = useState(null);
   const [targeting, setTargeting] = useState(null);
@@ -59,7 +62,7 @@ export default function PlayPage() {
   useEffect(() => {
     let a = null; try { a = JSON.parse(localStorage.getItem("hb_account") || "null"); } catch (e) {}
     if (!a) { router.push("/"); return; }
-    setName(a.username || ""); setAvatarUrl(a.avatarUrl || null);
+    setAccount(a); setName(a.username || ""); setAvatarUrl(a.avatarUrl || null);
   }, []);
 
   useEffect(() => {
@@ -98,6 +101,9 @@ export default function PlayPage() {
     if (fresh) setRoom(fresh);
     const ps = await getPlayers(r.id);
     setPlayers(ps);
+    // pull profile pictures from accounts by username (works even without a players.avatar_url column)
+    const humanNames = ps.filter((p) => !p.is_bot).map((p) => p.name);
+    if (humanNames.length) { try { setAvatars(await getAvatarsByNames(humanNames)); } catch (e) {} }
     const evs = await getEvents(r.id, 250);
     setEvents(evs);
     // gift toast + haptics on a newly-arrived gift
@@ -141,10 +147,19 @@ export default function PlayPage() {
     setBusy(true);
     try {
       const { player } = await joinRoom(code, name.trim(), avatarUrl);
-      localStorage.setItem("hb_profile", JSON.stringify({ name: name.trim(), avatarUrl }));
       localStorage.setItem("hb_player_" + code, JSON.stringify(player));
       setMe(player);
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  function onChangePhoto(file) {
+    fileToAvatar(file, (dataUrl) => {
+      setAvatarUrl(dataUrl);
+      const next = { ...(account || {}), username: name, avatarUrl: dataUrl };
+      setAccount(next);
+      localStorage.setItem("hb_account", JSON.stringify(next));
+      if (name) updateAccountAvatar(name, dataUrl);
+    });
   }
 
   async function choose(action, targetId = null) {
@@ -177,10 +192,16 @@ export default function PlayPage() {
         <div className="panel">
           <div className="label" style={{ marginBottom: 14, textAlign: "center" }}>Joining as</div>
           <div className="profile-edit" style={{ justifyContent: "center", flexDirection: "column", textAlign: "center" }}>
-            {avatarUrl
-              ? <img className="pfp" src={avatarUrl} alt="" style={{ width: 92, height: 92, border: "2px solid var(--gold)" }} />
-              : <span className="pfp pfp-emoji" style={{ width: 92, height: 92, fontSize: 34 }}>🎭</span>}
+            <label className="pfp-upload" title="Tap to add or change your photo" style={{ cursor: "pointer" }}>
+              {avatarUrl
+                ? <img className="pfp" src={avatarUrl} alt="" style={{ width: 92, height: 92, border: "2px solid var(--gold)" }} />
+                : <span className="pfp pfp-emoji" style={{ width: 92, height: 92, fontSize: 34 }}>📷</span>}
+              <span className="pfp-cam">＋</span>
+              <input type="file" accept="image/*" style={{ display: "none" }}
+                onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) onChangePhoto(f); }} />
+            </label>
             <div style={{ fontFamily: "'Cinzel',serif", fontSize: 22, color: "var(--gold)", marginTop: 10 }}>{name}</div>
+            <div className="note" style={{ marginTop: 2 }}>{avatarUrl ? "Tap the photo to change it" : "Tap to add a profile photo"}</div>
           </div>
           <button className="btn" style={{ marginTop: 16 }} disabled={busy || !name.trim()} onClick={onJoin}>
             {busy ? "Joining…" : "Take a Seat"}
@@ -192,6 +213,7 @@ export default function PlayPage() {
   }
 
   const mine = players.find((p) => p.id === me.id) || me;
+  const av = (p) => avatars[p.name] || p.avatar_url || (p.id === me.id ? (account && account.avatarUrl) : null);
   const ranked = players.slice().sort((a, b) => b.gold - a.gold);
   const myRank = ranked.findIndex((p) => p.id === me.id) + 1;
   const tier = rageTier(room.rage);
@@ -214,7 +236,7 @@ export default function PlayPage() {
 
   return (
     <div className="play-wrap">
-      <FloatingGuide avatarUrl={mine.avatar_url} emoji={mine.avatar} tip={guideTip} />
+      <FloatingGuide avatarUrl={av(mine)} emoji={mine.avatar} tip={guideTip} />
       {giftToast && (
         <div className={`play-gift-toast ${giftToast.mine ? "mine" : ""}`}>
           <div className="pg-label">{giftToast.label}{giftToast.mine ? " · for you!" : ""}</div>
@@ -227,7 +249,7 @@ export default function PlayPage() {
       </div>
       <div className="brand" style={{ textAlign: "center" }}>
         <h1 style={{ fontSize: 26, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-          <Avatar url={mine.avatar_url} emoji={mine.avatar} size={40} /> {mine.name}
+          <Avatar url={av(mine)} emoji={mine.avatar} size={40} /> {mine.name}
         </h1>
         <div className="mode">◆ Room {code} · Round {room.round || "—"}/{ROUNDS} ◆</div>
       </div>
@@ -336,7 +358,7 @@ export default function PlayPage() {
           {ranked.map((p, i) => (
             <div key={p.id} className={`pl ${p.id === me.id ? "you" : ""} ${scorchedNames.has(p.name) ? "scorched" : ""}`}>
               <div className="av" style={{ fontSize: 14 }}>{i + 1}</div>
-              <div className="who"><b><Avatar url={p.avatar_url} emoji={p.avatar} size={22} /> {p.name}</b>
+              <div className="who"><b><Avatar url={av(p)} emoji={p.avatar} size={22} /> {p.name}</b>
                 {scorchedNames.has(p.name) && <span className="badge b-scorch">🔥</span>}
               </div>
               <div style={{ textAlign: "right" }}>

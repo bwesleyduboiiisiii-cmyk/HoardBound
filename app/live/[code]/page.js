@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getRoomByCode, getPlayers, getEvents, subscribeRoom } from "../../../lib/roomApi";
+import { getRoomByCode, getPlayers, getEvents, subscribeRoom, getAvatarsByNames } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL, rageStage } from "../../../lib/game";
 import Avatar from "../../_components/Avatar";
@@ -34,6 +34,7 @@ export default function LivePage() {
   const code = String(params.code || "").toUpperCase();
   const [room, setRoom] = useState(null);
   const [players, setPlayers] = useState([]);
+  const [avatars, setAvatars] = useState({});
   const [events, setEvents] = useState([]);
   const [banner, setBanner] = useState(null);
   const [flash, setFlash] = useState(0);
@@ -66,7 +67,9 @@ export default function LivePage() {
     const r = roomRef.current; if (!r?.id) return;
     const { data: fresh } = await supabase.from("rooms").select("*").eq("id", r.id).maybeSingle();
     if (fresh) setRoom(fresh);
-    setPlayers(await getPlayers(r.id));
+    const ps = await getPlayers(r.id);
+    setPlayers(ps);
+    try { const hn = ps.filter((p) => !p.is_bot).map((p) => p.name); if (hn.length) setAvatars(await getAvatarsByNames(hn)); } catch (e) {}
     const evs = await getEvents(r.id, 24);
     setEvents(evs);
     // fire banner on a new significant event
@@ -139,7 +142,7 @@ export default function LivePage() {
               <div key={p.id} ref={(el) => (rowRefs.current[p.id] = el)}
                 className={`brow ${i === 0 ? "lead" : ""} ${scorchedNames.has(p.name) ? "scorched" : ""}`}>
                 <div className="rank">{i + 1}</div>
-                <div className="av"><Avatar url={p.avatar_url} emoji={p.avatar} size={34} /></div>
+                <div className="av"><Avatar url={avatars[p.name] || p.avatar_url} emoji={p.avatar} size={34} /></div>
                 <div>
                   <div className="nm">{p.name}
                     {scorchedNames.has(p.name) && <span className="badge b-scorch">🔥 Scorched</span>}

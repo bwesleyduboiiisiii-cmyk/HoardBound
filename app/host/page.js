@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import {
-  createRoom, getOrCreateRoom, stableHostId, getPlayers, getEvents, getMoveCount, addBot, renamePlayer,
+  createRoom, getOrCreateRoom, stableHostId, getPlayers, getEvents, getMoveCount, addBot, renamePlayer, getAvatarsByNames,
   startRound, resolveRound, fireDirector, fireGift, resetGame, endGame, removePlayer, subscribeRoom, uuid,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
@@ -30,6 +30,7 @@ export default function HostPage() {
   const [gift, setGift] = useState(null);
   const [botName, setBotName] = useState("");
   const [giftQty, setGiftQty] = useState(1);
+  const [avatars, setAvatars] = useState({});
   const [narration, setNarration] = useState(null);
   const [auto, setAuto] = useState(false);
   const [speedIdx, setSpeedIdx] = useState(1);
@@ -81,7 +82,10 @@ export default function HostPage() {
     if (!r?.id) return;
     const { data: fresh } = await supabase.from("rooms").select("*").eq("id", r.id).maybeSingle();
     if (fresh) setRoom(fresh);
-    setPlayers(await getPlayers(r.id));
+    const ps = await getPlayers(r.id);
+    setPlayers(ps);
+    const humanNames = ps.filter((p) => !p.is_bot).map((p) => p.name);
+    if (humanNames.length) { try { setAvatars(await getAvatarsByNames(humanNames)); } catch (e) {} }
     setEvents(await getEvents(r.id, 250));
     if (fresh?.round) setMoveCount(await getMoveCount(r.id, fresh.round));
   }
@@ -307,7 +311,7 @@ export default function HostPage() {
             {players.length === 0 && <div className="waiting">No hunters yet. Add bots or share the code.</div>}
             {players.map((p) => (
               <div key={p.id} className="pl">
-                <div className="av"><Avatar url={p.avatar_url} emoji={p.avatar} size={30} /></div>
+                <div className="av"><Avatar url={avatars[p.name] || p.avatar_url} emoji={p.avatar} size={30} /></div>
                 <div className="who"><b>{p.name}{p.is_bot && <span className="badge b-bot">bot</span>}</b></div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ color: "var(--ash)", fontSize: 12 }}>{p.is_bot ? "ready" : (p.connected === false ? "offline" : "joined")}</span>
@@ -396,7 +400,7 @@ export default function HostPage() {
           <div className="players">
             {ranked.map((p, i) => (
               <div key={p.id} className={`pl ${p.warded ? "warded" : ""} ${scorchedNames.has(p.name) ? "scorched" : ""}`}>
-                <div className="av"><Avatar url={p.avatar_url} emoji={p.avatar} size={30} /></div>
+                <div className="av"><Avatar url={avatars[p.name] || p.avatar_url} emoji={p.avatar} size={30} /></div>
                 <div className="who">
                   <b>{p.name}
                     {scorchedNames.has(p.name) && <span className="badge b-scorch">🔥 Scorched</span>}

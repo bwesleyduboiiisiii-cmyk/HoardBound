@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { signInAccount } from "../lib/roomApi";
+import { signInAccount, updateAccountAvatar } from "../lib/roomApi";
 
 function fileToAvatar(file, cb) {
   const reader = new FileReader();
@@ -103,9 +103,13 @@ export default function Home() {
       </div>
       <div className="landing-controls">
         <div className="acct-chip">
-          {account.avatarUrl
-            ? <img className="pfp" src={account.avatarUrl} alt="" style={{ width: 30, height: 30 }} />
-            : <span className="pfp pfp-emoji" style={{ width: 30, height: 30, fontSize: 16 }}>🎭</span>}
+          <label className="pfp-upload" title="Tap to change your photo" style={{ cursor: "pointer", lineHeight: 0 }}>
+            {account.avatarUrl
+              ? <img className="pfp" src={account.avatarUrl} alt="" style={{ width: 34, height: 34 }} />
+              : <span className="pfp pfp-emoji" style={{ width: 34, height: 34, fontSize: 16 }}>📷</span>}
+            <input type="file" accept="image/*" style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) fileToAvatar(f, (d) => { const next = { ...account, avatarUrl: d }; setAccount(next); localStorage.setItem("hb_account", JSON.stringify(next)); updateAccountAvatar(account.username, d); }); }} />
+          </label>
           <span>{account.username}</span>
           <button className="acct-out" onClick={signOut}>switch</button>
         </div>
