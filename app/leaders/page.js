@@ -7,12 +7,22 @@ import { fmt } from "../../lib/game";
 export default function LeadersPage() {
   const router = useRouter();
   const [rows, setRows] = useState(null);
+  const [err, setErr] = useState("");
 
-  useEffect(() => { getLeaders(50).then(setRows).catch(() => setRows([])); }, []);
+  function load() {
+    setRows(null); setErr("");
+    getLeaders(50).then(setRows).catch((e) => { setRows([]); setErr(e.message || String(e)); });
+  }
+  useEffect(() => { load(); }, []);
+
+  const tableMissing = /relation .*leaders.* does not exist|could not find the table|schema cache/i.test(err);
 
   return (
     <div className="leaders-wrap">
-      <div className="topbar-row"><button className="navback" onClick={() => router.push("/")}>‹ Home</button></div>
+      <div className="topbar-row" style={{ display: "flex", justifyContent: "space-between" }}>
+        <button className="navback" onClick={() => router.push("/")}>‹ Home</button>
+        <button className="navback" onClick={load}>↻ Refresh</button>
+      </div>
       <div className="brand" style={{ textAlign: "center" }}>
         <h1 style={{ fontSize: 34 }}>HOARDBOUND</h1>
         <div className="mode">◆ Season Leaderboard ◆</div>
@@ -20,8 +30,15 @@ export default function LeadersPage() {
 
       <div className="panel">
         {rows === null && <div className="waiting">Summoning the ledger…</div>}
-        {rows && rows.length === 0 && (
-          <div className="waiting">No games recorded yet. Play a match, then check back — winners are written to the ledger automatically.</div>
+        {rows && rows.length === 0 && !err && (
+          <div className="waiting">No games recorded yet. Finish a match (play to round 12 or hit End Game) and the results are written automatically — then tap ↻ Refresh.</div>
+        )}
+        {rows && rows.length === 0 && err && (
+          <div className="waiting" style={{ color: "#ff8a72" }}>
+            {tableMissing
+              ? "Leaderboard isn't set up yet. In Supabase → SQL Editor, run the leaders table migration (see below), then Refresh."
+              : `Couldn't load the leaderboard: ${err}`}
+          </div>
         )}
         {rows && rows.length > 0 && (
           <div className="lb">

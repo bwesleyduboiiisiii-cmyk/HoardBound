@@ -25,6 +25,13 @@ export default function HostPage() {
   const [events, setEvents] = useState([]);
   const [moveCount, setMoveCount] = useState(0);
   const [announce, setAnnounce] = useState(null);
+  const [voiceWarn, setVoiceWarn] = useState(null);
+  const voiceWarnedRef = useRef(false);
+  const [voiceMode, setVoiceMode] = useState("ai"); // "ai" (ElevenLabs) | "free" (device voice)
+  const [voices, setVoices] = useState([]);
+  const [narrVoice, setNarrVoice] = useState("");
+  const [dragVoice, setDragVoice] = useState("");
+  const [voicePanel, setVoicePanel] = useState(false);
   const announcedRound = useRef(0);
   const [qr, setQr] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -67,7 +74,37 @@ export default function HostPage() {
         if (data) { setRoom(data); }
       });
     }
+    // restore saved voice prefs
+    try {
+      const vp = JSON.parse(localStorage.getItem("hb_voice") || "null");
+      if (vp) { if (vp.mode) setVoiceMode(vp.mode); if (vp.narr) setNarrVoice(vp.narr); if (vp.drag) setDragVoice(vp.drag); }
+    } catch (e) {}
   }, []);
+
+  // Load the device's built-in voices (free, no credits). Populates async in Chrome.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const prefer = (vs, names) => {
+      const en = vs.filter((v) => /^en/i.test(v.lang));
+      for (const n of names) { const hit = en.find((v) => v.name.toLowerCase().includes(n)); if (hit) return hit.name; }
+      return (en[0] || vs[0] || {}).name || "";
+    };
+    const load = () => {
+      const vs = window.speechSynthesis.getVoices() || [];
+      if (!vs.length) return;
+      setVoices(vs.map((v) => ({ name: v.name, lang: v.lang })));
+      setNarrVoice((p) => p || prefer(vs, ["natural", "google us", "aria", "jenny", "samantha", "zira", "female"]));
+      setDragVoice((p) => p || prefer(vs, ["guy", "david", "daniel", "google uk english male", "male"]));
+    };
+    load();
+    window.speechSynthesis.onvoiceschanged = load;
+    return () => { try { window.speechSynthesis.onvoiceschanged = null; } catch (e) {} };
+  }, []);
+
+  // persist voice prefs
+  useEffect(() => {
+    try { localStorage.setItem("hb_voice", JSON.stringify({ mode: voiceMode, narr: narrVoice, drag: dragVoice })); } catch (e) {}
+  }, [voiceMode, narrVoice, dragVoice]);
 
   // subscribe when room known
   useEffect(() => {
@@ -142,12 +179,14 @@ export default function HostPage() {
   const SILENT_WAV = "data:audio/wav;base64,UklGRmQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==";
   function primeAudio() {
     // Called during a click gesture so the browser will allow later programmatic playback.
+    // The clip is silent, so no need to mute — just play it once to unlock the element.
     try {
       if (!audioRef.current) audioRef.current = new Audio();
       const a = audioRef.current;
-      a.muted = true; a.src = SILENT_WAV;
+      a.muted = false;
+      a.src = SILENT_WAV;
       const p = a.play();
-      if (p && p.then) p.then(() => { try { a.pause(); a.currentTime = 0; a.muted = false; } catch (e) {} }).catch(() => {});
+      if (p && p.then) p.then(() => { try { a.pause(); a.currentTime = 0; } catch (e) {} }).catch(() => {});
     } catch (e) {}
   }
   function stopAudio() {
@@ -158,13 +197,17 @@ export default function HostPage() {
     try {
       if (!window.speechSynthesis) { setTimeout(onDone, 2200); return; }
       const u = new SpeechSynthesisUtterance(text);
-      if (who === "dragon") { u.rate = 0.85; u.pitch = 0.2; } else { u.rate = 1.03; u.pitch = 0.9; }
+      const wantName = who === "dragon" ? dragVoice : narrVoice;
+      const vObj = (window.speechSynthesis.getVoices() || []).find((v) => v.name === wantName);
+      if (vObj) u.voice = vObj;
+      if (who === "dragon") { u.rate = 0.85; u.pitch = 0.2; } else { u.rate = 1.02; u.pitch = 0.95; }
       u.onend = () => onDone && onDone();
       window.speechSynthesis.speak(u);
     } catch (e) { setTimeout(onDone, 2200); }
   }
   async function speak(text, who, onDone) {
     try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+    if (voiceMode === "free") { fallbackSpeak(text, who, onDone); return; } // free device voice, no credits
     try {
       const res = await fetch("/api/narrate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, who }) });
       if (res.ok && (res.headers.get("content-type") || "").includes("audio")) {
@@ -177,8 +220,19 @@ export default function HostPage() {
         await a.play().catch(() => fallbackSpeak(text, who, onDone));
         return;
       }
-    } catch (e) {}
+      // Voice API responded but not with audio — note why so it isn't a mystery.
+      let why = `status ${res.status}`;
+      try { const j = await res.json(); why = j.detail || j.error || why; } catch (e) {}
+      flagVoiceFallback(why);
+    } catch (e) { flagVoiceFallback(String((e && e.message) || e)); }
     fallbackSpeak(text, who, onDone);
+  }
+  function flagVoiceFallback(reason) {
+    // show a small notice once per session so the host knows the ElevenLabs voice dropped (and why)
+    if (voiceWarnedRef.current) return;
+    voiceWarnedRef.current = true;
+    setVoiceWarn(String(reason || "").slice(0, 140));
+    setTimeout(() => setVoiceWarn(null), 8000);
   }
   function startNarration(events, round, ended) {
     const lines = [{ text: `Round ${round}. Here is how it unfolded…`, who: "narrator" }];
@@ -431,6 +485,44 @@ export default function HostPage() {
       {announce && (
         <div className="announce-toast">📜 {announce}</div>
       )}
+      {voiceWarn && (
+        <div className="voice-warn">🔇 Voice using backup — ElevenLabs said: {voiceWarn}. Check /api/narrate</div>
+      )}
+      {voicePanel && (
+        <div className="narration" onClick={() => setVoicePanel(false)}>
+          <div className="narr-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 540 }}>
+            <div className="narr-kicker">🔊 Narration Voice</div>
+            <div className="auth-tabs" style={{ marginTop: 6 }}>
+              <button className={`auth-tab ${voiceMode === "ai" ? "on" : ""}`} onClick={() => setVoiceMode("ai")}>AI · ElevenLabs</button>
+              <button className={`auth-tab ${voiceMode === "free" ? "on" : ""}`} onClick={() => { primeAudio(); setVoiceMode("free"); }}>Free · Device</button>
+            </div>
+            {voiceMode === "free" ? (
+              voices.length ? (
+                <div style={{ textAlign: "left", marginTop: 14 }}>
+                  <div className="label">Narrator voice</div>
+                  <select className="vsel" value={narrVoice} onChange={(e) => setNarrVoice(e.target.value)}>
+                    {voices.map((v) => <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>)}
+                  </select>
+                  <div className="label" style={{ marginTop: 12 }}>Dragon voice</div>
+                  <select className="vsel" value={dragVoice} onChange={(e) => setDragVoice(e.target.value)}>
+                    {voices.map((v) => <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>)}
+                  </select>
+                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                    <button className="btn ghost" onClick={() => fallbackSpeak("The hunt begins. Choose wisely, hunters.", "narrator", () => {})}>▶ Test narrator</button>
+                    <button className="btn ghost" onClick={() => fallbackSpeak("You dared to touch my hoard? Then burn!", "dragon", () => {})}>🐉 Test dragon</button>
+                  </div>
+                  <div className="note" style={{ marginTop: 12 }}>These voices come from your device/browser — free, no credits, no key. The choices depend on your OS + browser (Chrome desktop usually has the most, including natural-sounding "Google" voices).</div>
+                </div>
+              ) : (
+                <div className="note" style={{ marginTop: 14 }}>No device voices detected here. Try Chrome on a desktop — it has the widest selection.</div>
+              )
+            ) : (
+              <div className="note" style={{ marginTop: 14 }}>Uses your configured ElevenLabs voices (consumes credits). If a call fails, it falls back to a device voice automatically. Switch to <b>Free · Device</b> for unlimited, no-credit narration.</div>
+            )}
+            <div className="narr-foot"><span /><button className="btn ghost" onClick={() => setVoicePanel(false)}>Done ▸</button></div>
+          </div>
+        </div>
+      )}
       {gift && (
         <div className="gift-toast">
           <span className="gt-emoji">{gift.emoji}</span>
@@ -550,6 +642,9 @@ export default function HostPage() {
               </button>
               <button className="btn ghost" onClick={() => setTimerIdx((i) => (i + 1) % TIMERS.length)} title="Wait time — how long autoplay pauses between steps (and auto-resolves manual rounds)">
                 ⏲ {TIMERS[timerIdx].label}
+              </button>
+              <button className="btn ghost" onClick={() => { primeAudio(); setVoicePanel(true); }} title="Choose the narration voice">
+                🔊 {voiceMode === "free" ? "Free Voice" : "AI Voice"}
               </button>
             </div>
           )}

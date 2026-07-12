@@ -1,25 +1,42 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const VOICE = () => process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM"; // default "Rachel"
-const DRAGON_VOICE = () => process.env.ELEVENLABS_DRAGON_VOICE_ID || VOICE(); // falls back to narrator voice
+// Only ever use the voices YOU configure. No baked-in default voice.
+const VOICE = () => process.env.ELEVENLABS_VOICE_ID || null;                    // narrator
+const DRAGON_VOICE = () => process.env.ELEVENLABS_DRAGON_VOICE_ID || VOICE();   // dragon, else narrator
 const MODEL = () => process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
 
 async function tts(text, who) {
   const key = process.env.ELEVENLABS_API_KEY;
-  if (!key) return { ok: false, status: 501, detail: "ELEVENLABS_API_KEY is not set on the server" };
+  if (!key) return { ok: false, status: 501, detail: "ELEVENLABS_API_KEY is not set" };
   const voiceId = who === "dragon" ? DRAGON_VOICE() : VOICE();
-  // the dragon gets lower stability + a touch of style for a more dramatic, monstrous read
+  if (!voiceId) return { ok: false, status: 501, detail: "No voice configured — set ELEVENLABS_VOICE_ID" };
+  // Keep settings minimal and universally supported (no `style` — some voices reject it and the call fails).
   const settings = who === "dragon"
-    ? { stability: 0.3, similarity_boost: 0.8, style: 0.5 }
+    ? { stability: 0.35, similarity_boost: 0.85 }
     : { stability: 0.5, similarity_boost: 0.75 };
-  const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-    method: "POST",
-    headers: { "xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg" },
-    body: JSON.stringify({ text, model_id: MODEL(), voice_settings: settings }),
-  });
-  if (!r.ok) return { ok: false, status: r.status, detail: (await r.text().catch(() => "")).slice(0, 300) };
-  return { ok: true, status: 200, buf: await r.arrayBuffer() };
+  const body = JSON.stringify({ text, model_id: MODEL(), voice_settings: settings });
+
+  let last = { ok: false, status: 0, detail: "no attempt" };
+  // Retry transient failures (429 rate limit, 5xx, network) so a brief blip
+  // mid-game doesn't silently drop us to the browser voice.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: "POST",
+        headers: { "xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg" },
+        body,
+      });
+      if (r.ok) return { ok: true, status: 200, buf: await r.arrayBuffer() };
+      last = { ok: false, status: r.status, detail: (await r.text().catch(() => "")).slice(0, 300) };
+      // Only retry things that might recover; 4xx like 401/404/422 won't.
+      if (r.status !== 429 && r.status < 500) break;
+    } catch (e) {
+      last = { ok: false, status: 0, detail: String((e && e.message) || e) };
+    }
+    await new Promise((res) => setTimeout(res, 500 * (attempt + 1)));
+  }
+  return last;
 }
 
 // GET = self-test you can open in a browser: /api/narrate
@@ -29,6 +46,7 @@ export async function GET() {
   return Response.json({
     keySet,
     voiceId: VOICE(),
+    voiceIdSet: !!process.env.ELEVENLABS_VOICE_ID,
     dragonVoiceId: DRAGON_VOICE(),
     dragonVoiceSet: !!process.env.ELEVENLABS_DRAGON_VOICE_ID,
     modelId: MODEL(),
