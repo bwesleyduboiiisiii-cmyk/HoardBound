@@ -7,7 +7,7 @@ import {
   startRound, resolveRound, fireDirector, fireGift, resetGame, endGame, removePlayer, subscribeRoom, uuid,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
-import { ROUNDS, rageTier, fmt, rageStage, GIFT_ORDER, GIFT_META } from "../../lib/game";
+import { ROUNDS, rageTier, fmt, rageStage, GIFT_ORDER, GIFT_META, narrationLine } from "../../lib/game";
 import Chronicle from "../_components/Chronicle";
 import Avatar from "../_components/Avatar";
 
@@ -30,6 +30,7 @@ export default function HostPage() {
   const [gift, setGift] = useState(null);
   const [botName, setBotName] = useState("");
   const [giftQty, setGiftQty] = useState(1);
+  const [narration, setNarration] = useState(null);
   const [auto, setAuto] = useState(false);
   const [speedIdx, setSpeedIdx] = useState(1);
   const [timerIdx, setTimerIdx] = useState(0);
@@ -52,6 +53,8 @@ export default function HostPage() {
   ];
   // boot: restore host + room
   useEffect(() => {
+    let acct = null; try { acct = JSON.parse(localStorage.getItem("hb_account") || "null"); } catch (e) {}
+    if (!acct) { router.push("/"); return; }
     let hid = localStorage.getItem("hb_host");
     if (!hid) { hid = uuid(); localStorage.setItem("hb_host", hid); }
     setHostId(hid);
@@ -118,11 +121,45 @@ export default function HostPage() {
     try { await removePlayer(p.id); } catch (e) { setErr(e.message); }
   }
   async function onStart() { await startRound(room.id, 1); }
-  async function onResolve() {
+  async function onResolve(narrate = false) {
     setBusy(true);
-    try { await resolveRound(room); await refresh(); } finally { setBusy(false); }
+    try {
+      const res = await resolveRound(room);
+      await refresh();
+      if (narrate && res && res.events && res.events.length) startNarration(res.events, room.round);
+    } finally { setBusy(false); }
   }
   async function onNext() { await startRound(room.id, room.round + 1); await refresh(); }
+
+  function speak(text) {
+    try {
+      if (!window.speechSynthesis) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.03; u.pitch = 0.9;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  function startNarration(events, round) {
+    const lines = [`Round ${round}. Here is how it unfolded…`,
+      ...events.map(narrationLine).filter(Boolean)];
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+    setNarration({ lines, i: 0 });
+  }
+  function endNarration() {
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+    setNarration(null);
+  }
+  useEffect(() => {
+    if (!narration) return;
+    if (narration.i >= narration.lines.length) {
+      const t = setTimeout(() => setNarration(null), 1500);
+      return () => clearTimeout(t);
+    }
+    speak(narration.lines[narration.i]);
+    const t = setTimeout(() => setNarration((n) => (n ? { ...n, i: n.i + 1 } : n)), 2700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narration && narration.i]);
 
   // Autoplay: keep advancing rounds on a timer until the game ends or the host stops it.
   useEffect(() => {
@@ -281,6 +318,18 @@ export default function HostPage() {
 
   return (
     <div className="host-wrap cockpit">
+      {narration && (
+        <div className="narration" onClick={endNarration}>
+          <div className="narr-card" onClick={(e) => e.stopPropagation()}>
+            <div className="narr-kicker">📜 The Chronicle Speaks</div>
+            <div className="narr-line">{narration.lines[Math.min(narration.i, narration.lines.length - 1)]}</div>
+            <div className="narr-foot">
+              <span>{Math.min(narration.i + 1, narration.lines.length)} / {narration.lines.length}</span>
+              <button className="btn ghost" onClick={endNarration}>Skip ▸</button>
+            </div>
+          </div>
+        </div>
+      )}
       {gift && (
         <div className="gift-toast">
           <span className="gt-emoji">{gift.emoji}</span>
@@ -371,7 +420,7 @@ export default function HostPage() {
                 <span className="label">Round {room.round} in play{countdown !== null && <span style={{ color: "var(--gold)", marginLeft: 8 }}>⏳ auto-resolve in 0:{String(countdown).padStart(2, "0")}</span>}</span>
                 <span style={{ color: "var(--ash)", fontSize: 12 }}>{moveCount} / {humans} humans moved · bots auto</span>
               </div>
-              <button className="btn" disabled={busy} onClick={onResolve}>{busy ? "The dice fall…" : "Resolve Round"}</button>
+              <button className="btn" disabled={busy} onClick={() => onResolve(true)}>{busy ? "The dice fall…" : "Resolve Round"}</button>
             </>
           )}
           {room.status === "resolving" && (

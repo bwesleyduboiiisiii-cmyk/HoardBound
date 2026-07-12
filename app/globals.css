@@ -569,3 +569,31 @@ body:has(.host-wrap.cockpit)::before{
 .floaty-emoji{font-size:34px}
 .floaty-grip{font-size:9px;color:var(--ash);margin-top:3px;letter-spacing:.05em}
 @keyframes floatBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* special spell move button (player) */
+.act.spell{background:linear-gradient(135deg, rgba(138,79,255,.22), rgba(245,196,81,.16));
+  border:1px solid #8a4fff;box-shadow:0 0 18px rgba(138,79,255,.25) inset;position:relative;overflow:hidden}
+.act.spell .t{color:#d9c2ff}
+.act.spell:not(:disabled):hover{box-shadow:0 0 22px rgba(138,79,255,.45)}
+.act.spell:disabled{opacity:.5;cursor:not-allowed}
+
+/* spell entries in the chronicle */
+.fcard.spell{border-left-color:#8a4fff;background:linear-gradient(90deg, rgba(138,79,255,.14), transparent)}
+.fcard.spell b{color:#c9a9ff}
+
+/* post-round narration overlay (host) */
+.narration{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;
+  background:rgba(6,4,12,.82);backdrop-filter:blur(3px);animation:giftPop .25s ease-out}
+.narr-card{max-width:640px;width:calc(100% - 48px);text-align:center;padding:36px 32px;border-radius:20px;
+  background:radial-gradient(140% 120% at 50% 0%, #241a40, #120c22);border:1px solid var(--gold);
+  box-shadow:0 24px 80px rgba(0,0,0,.7), 0 0 40px rgba(245,196,81,.2)}
+.narr-kicker{font-family:'Cinzel',serif;color:var(--gold);letter-spacing:.12em;font-size:13px;text-transform:uppercase;margin-bottom:18px}
+.narr-line{font-family:'Cinzel',serif;font-size:26px;line-height:1.35;color:var(--bone);min-height:2.4em;
+  display:flex;align-items:center;justify-content:center}
+.narr-foot{display:flex;align-items:center;justify-content:space-between;margin-top:22px;color:var(--ash);font-size:13px}
+.narr-foot .btn{width:auto;padding:8px 18px}
+
+/* signed-in account chip */
+.acct-chip{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:14px;color:var(--bone);font-size:14px;font-weight:700}
+.acct-chip .pfp{border:1px solid var(--gold)}
+.acct-out{background:none;border:none;color:var(--ash);font-size:12px;text-decoration:underline;cursor:pointer}

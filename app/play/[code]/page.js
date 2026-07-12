@@ -57,7 +57,9 @@ export default function PlayPage() {
   const meRef = useRef(null); meRef.current = me;
 
   useEffect(() => {
-    try { const p = JSON.parse(localStorage.getItem("hb_profile") || "null"); if (p) { setName(p.name || ""); setAvatarUrl(p.avatarUrl || null); } } catch (e) {}
+    let a = null; try { a = JSON.parse(localStorage.getItem("hb_account") || "null"); } catch (e) {}
+    if (!a) { router.push("/"); return; }
+    setName(a.username || ""); setAvatarUrl(a.avatarUrl || null);
   }, []);
 
   useEffect(() => {
@@ -168,26 +170,17 @@ export default function PlayPage() {
           <h1 style={{ fontSize: 30 }}>HOARDBOUND</h1><div className="mode">◆ Room {code} ◆</div>
         </div>
         <div className="panel">
-          <div className="label" style={{ marginBottom: 12 }}>Your profile</div>
-          <div className="profile-edit">
-            <label className="pfp-upload" title="Upload a profile picture">
-              {avatarUrl
-                ? <img className="pfp" src={avatarUrl} alt="" style={{ width: 84, height: 84 }} />
-                : <span className="pfp pfp-emoji" style={{ width: 84, height: 84, fontSize: 30 }}>📷</span>}
-              <span className="pfp-cam">＋</span>
-              <input type="file" accept="image/*" style={{ display: "none" }}
-                onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) fileToAvatar(f, setAvatarUrl); }} />
-            </label>
-            <div style={{ flex: 1 }}>
-              <input className="profile-name"
-                value={name} maxLength={18} placeholder="Your hunter name"
-                onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onJoin()} />
-              {avatarUrl && <button className="pfp-clear" onClick={() => setAvatarUrl(null)}>Remove photo</button>}
-            </div>
+          <div className="label" style={{ marginBottom: 14, textAlign: "center" }}>Joining as</div>
+          <div className="profile-edit" style={{ justifyContent: "center", flexDirection: "column", textAlign: "center" }}>
+            {avatarUrl
+              ? <img className="pfp" src={avatarUrl} alt="" style={{ width: 92, height: 92, border: "2px solid var(--gold)" }} />
+              : <span className="pfp pfp-emoji" style={{ width: 92, height: 92, fontSize: 34 }}>🎭</span>}
+            <div style={{ fontFamily: "'Cinzel',serif", fontSize: 22, color: "var(--gold)", marginTop: 10 }}>{name}</div>
           </div>
-          <button className="btn" style={{ marginTop: 14 }} disabled={busy || !name.trim()} onClick={onJoin}>
+          <button className="btn" style={{ marginTop: 16 }} disabled={busy || !name.trim()} onClick={onJoin}>
             {busy ? "Joining…" : "Take a Seat"}
           </button>
+          <button className="pfp-clear" style={{ display: "block", margin: "12px auto 0" }} onClick={() => router.push("/")}>Not you? Switch account</button>
         </div>
       </div>
     );
@@ -205,6 +198,7 @@ export default function PlayPage() {
   else if (room.status === "resolving") guideTip = "Fortunes shift… let's see how it lands.";
   else if (room.status === "ended") guideTip = myRank === 1 ? "We did it — the hoard is ours! 👑" : "Good hunt. Ready for another?";
   else if (liveOffers.length) guideTip = `${liveOffers[0].name} wants to ally — accept or deny!`;
+  else if (room.spell_player === me.id && !myMove && mine.gold >= 3000) guideTip = "✨ The arcane chose you — Cast a Spell for 3,000◈!";
   else if (iAmScorched) guideTip = "The dragon burned us! Lie Low to stay safe.";
   else if (!myMove) {
     if (room.rage >= 85) guideTip = "Dragon's about to blow — Lie Low is safest.";
@@ -286,6 +280,13 @@ export default function PlayPage() {
                   <div className="t">{t}</div><div className="d">{d}</div>
                 </button>
               ))}
+              {room.spell_player === me.id && (
+                <button className="act spell" disabled={mine.gold < 3000}
+                  onClick={() => mine.gold >= 3000 && choose("spell")}>
+                  <div className="t">✨ Cast a Spell · 3,000◈</div>
+                  <div className="d">{mine.gold >= 3000 ? "A completely random arcane effect strikes!" : "Need 3,000◈ to cast."}</div>
+                </button>
+              )}
             </div>
           ) : (
             <>

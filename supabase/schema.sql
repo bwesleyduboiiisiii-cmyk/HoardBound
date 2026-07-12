@@ -11,6 +11,7 @@ create table if not exists rooms (
   rage        int  not null default 0,
   hoard       bigint not null default 50000,
   double_next boolean not null default false,
+  spell_player uuid,                            -- hunter who may buy the spell this round
   modifiers   jsonb not null default '{}'::jsonb,
   created_at  timestamptz default now()
 );
@@ -89,6 +90,7 @@ end $$;
 
 -- Gift power-ups: round modifiers (safe to run on existing rooms tables)
 alter table rooms add column if not exists modifiers jsonb not null default '{}'::jsonb;
+alter table rooms add column if not exists spell_player uuid;
 
 -- ---------- Season leaderboard (persistent, keyed by hunter name) ----------
 create table if not exists leaders (
@@ -108,3 +110,17 @@ end $$;
 
 -- Profile pictures (safe to run on an existing players table)
 alter table players add column if not exists avatar_url text;
+
+-- ---------- Accounts (casual gate: username + 5-digit code + profile picture) ----------
+create table if not exists accounts (
+  username   text primary key,
+  code       text not null,
+  avatar_url text,
+  created_at timestamptz not null default now()
+);
+alter table accounts enable row level security;
+do $$ begin
+  if not exists (select 1 from pg_policies where policyname = 'dev_all_accounts') then
+    create policy dev_all_accounts on accounts for all using (true) with check (true);
+  end if;
+end $$;
