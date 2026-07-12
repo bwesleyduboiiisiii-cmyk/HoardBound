@@ -597,3 +597,9 @@ body:has(.host-wrap.cockpit)::before{
 .acct-chip{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:14px;color:var(--bone);font-size:14px;font-weight:700}
 .acct-chip .pfp{border:1px solid var(--gold)}
 .acct-out{background:none;border:none;color:var(--ash);font-size:12px;text-decoration:underline;cursor:pointer}
+
+/* login / create tabs */
+.auth-tabs{display:flex;gap:8px;margin-bottom:16px}
+.auth-tab{flex:1;background:var(--obsidian-2);border:1px solid var(--stroke);color:var(--ash);border-radius:10px;
+  padding:11px;font-family:'Barlow';font-weight:700;cursor:pointer;transition:all .15s}
+.auth-tab.on{border-color:var(--gold);color:var(--gold);background:rgba(245,196,81,.10)}

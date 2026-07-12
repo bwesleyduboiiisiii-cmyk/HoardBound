@@ -31,6 +31,7 @@ export default function Home() {
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [mode, setMode] = useState("login"); // "login" | "create"
 
   useEffect(() => {
     try { setAccount(JSON.parse(localStorage.getItem("hb_account") || "null")); }
@@ -40,7 +41,7 @@ export default function Home() {
   async function enter() {
     setErr(""); setBusy(true);
     try {
-      const acct = await signInAccount(username, pin, avatarUrl);
+      const acct = await signInAccount(username, pin, avatarUrl, mode === "login");
       localStorage.setItem("hb_account", JSON.stringify(acct));
       setAccount(acct);
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
@@ -63,17 +64,22 @@ export default function Home() {
           <h1>HOARDBOUND</h1><div className="sub">LIVE</div><div className="mode">◆ Dragon&apos;s Hoard ◆</div>
         </div>
         <div className="landing-controls">
-          <div className="label" style={{ marginBottom: 12, textAlign: "center" }}>Create your account</div>
-          <div className="profile-edit" style={{ justifyContent: "center", marginBottom: 14 }}>
-            <label className="pfp-upload" title="Add a profile picture">
-              {avatarUrl
-                ? <img className="pfp" src={avatarUrl} alt="" style={{ width: 84, height: 84 }} />
-                : <span className="pfp pfp-emoji" style={{ width: 84, height: 84, fontSize: 30 }}>📷</span>}
-              <span className="pfp-cam">＋</span>
-              <input type="file" accept="image/*" style={{ display: "none" }}
-                onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) fileToAvatar(f, setAvatarUrl); }} />
-            </label>
+          <div className="auth-tabs">
+            <button className={`auth-tab ${mode === "login" ? "on" : ""}`} onClick={() => { setMode("login"); setErr(""); }}>Log In</button>
+            <button className={`auth-tab ${mode === "create" ? "on" : ""}`} onClick={() => { setMode("create"); setErr(""); }}>Create Account</button>
           </div>
+          {mode === "create" && (
+            <div className="profile-edit" style={{ justifyContent: "center", marginBottom: 14 }}>
+              <label className="pfp-upload" title="Add a profile picture">
+                {avatarUrl
+                  ? <img className="pfp" src={avatarUrl} alt="" style={{ width: 84, height: 84 }} />
+                  : <span className="pfp pfp-emoji" style={{ width: 84, height: 84, fontSize: 30 }}>📷</span>}
+                <span className="pfp-cam">＋</span>
+                <input type="file" accept="image/*" style={{ display: "none" }}
+                  onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) fileToAvatar(f, setAvatarUrl); }} />
+              </label>
+            </div>
+          )}
           <input className="profile-name" style={{ marginBottom: 10 }} value={username} maxLength={18}
             placeholder="Username" onChange={(e) => setUsername(e.target.value)} />
           <input className="profile-name" inputMode="numeric" value={pin} maxLength={5}
@@ -82,12 +88,8 @@ export default function Home() {
           {err && <div className="note" style={{ color: "#ff8a72", marginTop: 8 }}>{err}</div>}
           <button className="btn host-cta" style={{ marginTop: 14 }}
             disabled={busy || !username.trim() || pin.length !== 5} onClick={enter}>
-            {busy ? "…" : "Enter the Lair"}
+            {busy ? "…" : mode === "login" ? "Log In" : "Create Account"}
           </button>
-          <div className="note" style={{ marginTop: 10 }}>
-            New here? Pick a username, a 5-digit code, and a photo.<br />
-            Been here before? Enter the same username and code to sign back in.
-          </div>
         </div>
       </div>
     );

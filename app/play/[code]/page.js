@@ -157,6 +157,11 @@ export default function PlayPage() {
     localStorage.removeItem("hb_player_" + code);
     router.push("/");
   }
+  function signOut() {
+    localStorage.removeItem("hb_player_" + code);
+    localStorage.removeItem("hb_account");
+    router.push("/");
+  }
 
   // ---- states ----
   if (err) return <div className="play-wrap"><div className="waiting">{err}</div></div>;
@@ -191,7 +196,8 @@ export default function PlayPage() {
   const myRank = ranked.findIndex((p) => p.id === me.id) + 1;
   const tier = rageTier(room.rage);
   const canMove = room.status === "active" && !myMove;
-  const iAmScorched = (events || []).some((e) => e.kind === "scorch" && e.round === room.round && e.payload && e.payload.name === mine.name);
+  const scorchedNames = new Set((events || []).filter((e) => e.kind === "scorch" && e.round === room.round).map((e) => e.payload && e.payload.name));
+  const iAmScorched = scorchedNames.has(mine.name);
   const liveOffers = pactOffers.filter((o) => !denied.includes(o.id) && !(myMove && myMove.action === "pact" && myMove.target_id === o.id));
   let guideTip = "";
   if (room.status === "lobby") guideTip = "We're in! Waiting for the host to begin…";
@@ -215,7 +221,10 @@ export default function PlayPage() {
           <div className="pg-text">{giftToast.text}</div>
         </div>
       )}
-      <div className="topbar-row"><button className="navback" onClick={leave}>‹ Leave game</button></div>
+      <div className="topbar-row" style={{ display: "flex", justifyContent: "space-between" }}>
+        <button className="navback" onClick={leave}>‹ Leave game</button>
+        <button className="navback" onClick={signOut}>Sign out</button>
+      </div>
       <div className="brand" style={{ textAlign: "center" }}>
         <h1 style={{ fontSize: 26, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
           <Avatar url={mine.avatar_url} emoji={mine.avatar} size={40} /> {mine.name}
@@ -325,9 +334,11 @@ export default function PlayPage() {
         <div className="label" style={{ marginBottom: 8 }}>Standings</div>
         <div className="players">
           {ranked.map((p, i) => (
-            <div key={p.id} className={`pl ${p.id === me.id ? "you" : ""}`}>
+            <div key={p.id} className={`pl ${p.id === me.id ? "you" : ""} ${scorchedNames.has(p.name) ? "scorched" : ""}`}>
               <div className="av" style={{ fontSize: 14 }}>{i + 1}</div>
-              <div className="who"><b><Avatar url={p.avatar_url} emoji={p.avatar} size={22} /> {p.name}</b></div>
+              <div className="who"><b><Avatar url={p.avatar_url} emoji={p.avatar} size={22} /> {p.name}</b>
+                {scorchedNames.has(p.name) && <span className="badge b-scorch">🔥</span>}
+              </div>
               <div style={{ textAlign: "right" }}>
                 <div className="g">{fmt(p.gold)} ◈</div>
                 <div className="trust">Trust {p.trust}</div>

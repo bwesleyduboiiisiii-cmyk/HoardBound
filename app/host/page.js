@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import {
-  createRoom, getPlayers, getEvents, getMoveCount, addBot, renamePlayer,
+  createRoom, getOrCreateRoom, stableHostId, getPlayers, getEvents, getMoveCount, addBot, renamePlayer,
   startRound, resolveRound, fireDirector, fireGift, resetGame, endGame, removePlayer, subscribeRoom, uuid,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
@@ -55,8 +55,8 @@ export default function HostPage() {
   useEffect(() => {
     let acct = null; try { acct = JSON.parse(localStorage.getItem("hb_account") || "null"); } catch (e) {}
     if (!acct) { router.push("/"); return; }
-    let hid = localStorage.getItem("hb_host");
-    if (!hid) { hid = uuid(); localStorage.setItem("hb_host", hid); }
+    const hid = stableHostId(acct.username);
+    localStorage.setItem("hb_host", hid);
     setHostId(hid);
     const rid = localStorage.getItem("hb_room");
     if (rid) {
@@ -94,7 +94,7 @@ export default function HostPage() {
     }
     setBusy(true);
     try {
-      const r = await createRoom(hostId);
+      const r = await getOrCreateRoom(hostId);
       localStorage.setItem("hb_room", r.id);
       setRoom(r);
       const url = `${window.location.origin}/play/${r.code}`;
@@ -131,13 +131,34 @@ export default function HostPage() {
   }
   async function onNext() { await startRound(room.id, room.round + 1); await refresh(); }
 
-  function speak(text) {
+  const audioRef = useRef(null);
+  function stopAudio() {
+    try { if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; } } catch (e) {}
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+  }
+  function fallbackSpeak(text, onDone) {
     try {
-      if (!window.speechSynthesis) return;
+      if (!window.speechSynthesis) { setTimeout(onDone, 2200); return; }
       const u = new SpeechSynthesisUtterance(text);
       u.rate = 1.03; u.pitch = 0.9;
+      u.onend = () => onDone && onDone();
       window.speechSynthesis.speak(u);
+    } catch (e) { setTimeout(onDone, 2200); }
+  }
+  async function speak(text, onDone) {
+    stopAudio();
+    try {
+      const res = await fetch("/api/narrate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+      if (res.ok && (res.headers.get("content-type") || "").includes("audio")) {
+        const url = URL.createObjectURL(await res.blob());
+        const a = new Audio(url); audioRef.current = a;
+        a.onended = () => { URL.revokeObjectURL(url); if (audioRef.current === a) onDone && onDone(); };
+        a.onerror = () => { URL.revokeObjectURL(url); fallbackSpeak(text, onDone); };
+        await a.play().catch(() => fallbackSpeak(text, onDone));
+        return;
+      }
     } catch (e) {}
+    fallbackSpeak(text, onDone); // no key / error -> browser voice
   }
   function startNarration(events, round) {
     const lines = [`Round ${round}. Here is how it unfolded…`,
@@ -146,7 +167,7 @@ export default function HostPage() {
     setNarration({ lines, i: 0 });
   }
   function endNarration() {
-    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+    stopAudio();
     setNarration(null);
   }
   useEffect(() => {
@@ -155,17 +176,21 @@ export default function HostPage() {
       const t = setTimeout(() => setNarration(null), 1500);
       return () => clearTimeout(t);
     }
-    speak(narration.lines[narration.i]);
-    const t = setTimeout(() => setNarration((n) => (n ? { ...n, i: n.i + 1 } : n)), 2700);
-    return () => clearTimeout(t);
+    let done = false;
+    const advance = () => { if (done) return; done = true; setNarration((n) => (n ? { ...n, i: n.i + 1 } : n)); };
+    speak(narration.lines[narration.i], advance);
+    const safety = setTimeout(advance, 9000); // never get stuck if audio/speech never signals end
+    return () => clearTimeout(safety);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [narration && narration.i]);
 
   // Autoplay: keep advancing rounds on a timer until the game ends or the host stops it.
+  // The ⏲ timer, when set, decides how long autoplay waits between steps; otherwise use the speed.
   useEffect(() => {
     if (!auto || !room) return;
     if (room.status === "ended") { setAuto(false); return; }
     if (room.status !== "active" && room.status !== "resolving") return;
+    const autoDelay = TIMERS[timerIdx].secs > 0 ? TIMERS[timerIdx].secs * 1000 : SPEEDS[speedIdx].ms;
     const t = setTimeout(async () => {
       if (stepping.current) return;
       stepping.current = true;
@@ -175,9 +200,9 @@ export default function HostPage() {
         if (r.status === "active") await onResolve();
         else if (r.status === "resolving") await onNext();
       } finally { stepping.current = false; }
-    }, SPEEDS[speedIdx].ms);
+    }, autoDelay);
     return () => clearTimeout(t);
-  }, [auto, room && room.status, room && room.round, speedIdx]);
+  }, [auto, room && room.status, room && room.round, speedIdx, timerIdx]);
 
   // Round timer: when enabled (and autoplay is off), count down and auto-resolve at 0.
   useEffect(() => {
@@ -228,6 +253,13 @@ export default function HostPage() {
         !window.confirm("Leave this game? You can rejoin, or use End Game to finish it first.")) return;
     localStorage.removeItem("hb_room");
     setRoom(null);
+  }
+
+  function onSignOut() {
+    if (!window.confirm("Sign out of your account?")) return;
+    localStorage.removeItem("hb_account");
+    localStorage.removeItem("hb_room");
+    router.push("/");
   }
 
   // ---------- render ----------
@@ -303,6 +335,7 @@ export default function HostPage() {
         <div className="dock-actions">
           <button className="btn ghost" onClick={onLeave}>⟵ Leave</button>
           <button className="btn ghost" onClick={onReset}>Reset Room</button>
+          <button className="btn ghost" onClick={onSignOut}>Sign out</button>
         </div>
       </div>
     );
@@ -366,15 +399,19 @@ export default function HostPage() {
                 <div className="av"><Avatar url={p.avatar_url} emoji={p.avatar} size={30} /></div>
                 <div className="who">
                   <b>{p.name}
+                    {scorchedNames.has(p.name) && <span className="badge b-scorch">🔥 Scorched</span>}
                     {p.warded && <span className="badge b-ward">Warded</span>}
                     {p.pact_with && <span className="badge b-pact">Pact</span>}
                     {p.is_bot && <span className="badge b-bot">bot</span>}
                   </b>
                   <span className="tag">{i === 0 ? "★ leading" : `rank ${i + 1}`}</span>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <div className="g" style={{ fontSize: 15 }}>{fmt(p.gold)} ◈</div>
-                  <div className="trust">Trust {p.trust}</div>
+                <div style={{ textAlign: "right", display: "flex", alignItems: "center", gap: 8 }}>
+                  <div>
+                    <div className="g" style={{ fontSize: 15 }}>{fmt(p.gold)} ◈</div>
+                    <div className="trust">Trust {p.trust}</div>
+                  </div>
+                  <button className="kick" title={`Remove ${p.name}`} onClick={() => onKick(p)}>✕</button>
                 </div>
               </div>
             ))}
@@ -443,7 +480,7 @@ export default function HostPage() {
               <button className="btn ghost" onClick={() => setSpeedIdx((i) => (i + 1) % SPEEDS.length)} title="Autoplay speed">
                 ⏱ {SPEEDS[speedIdx].label}
               </button>
-              <button className="btn ghost" onClick={() => setTimerIdx((i) => (i + 1) % TIMERS.length)} title="Round timer (auto-resolves)">
+              <button className="btn ghost" onClick={() => setTimerIdx((i) => (i + 1) % TIMERS.length)} title="Wait time — how long autoplay pauses between steps (and auto-resolves manual rounds)">
                 ⏲ {TIMERS[timerIdx].label}
               </button>
             </div>
@@ -452,6 +489,7 @@ export default function HostPage() {
             <button className="btn ghost" onClick={onLeave}>⟵ Leave</button>
             {(room.status === "active" || room.status === "resolving") &&
               <button className="btn ghost danger" onClick={onEnd}>⛔ End Game</button>}
+            <button className="btn ghost" onClick={onSignOut}>Sign out</button>
           </div>
         </div>
       </div>
