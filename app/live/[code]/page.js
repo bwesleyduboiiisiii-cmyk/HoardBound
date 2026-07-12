@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { getRoomByCode, getPlayers, getEvents, subscribeRoom } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL, rageStage } from "../../../lib/game";
+import Avatar from "../../_components/Avatar";
 
 const feedClass = (k) =>
   k === "scorch" || k === "awaken" || k === "oath" || k === "betray_fail" ? "fire"
@@ -138,7 +139,7 @@ export default function LivePage() {
               <div key={p.id} ref={(el) => (rowRefs.current[p.id] = el)}
                 className={`brow ${i === 0 ? "lead" : ""} ${scorchedNames.has(p.name) ? "scorched" : ""}`}>
                 <div className="rank">{i + 1}</div>
-                <div className="av">{p.avatar}</div>
+                <div className="av"><Avatar url={p.avatar_url} emoji={p.avatar} size={34} /></div>
                 <div>
                   <div className="nm">{p.name}
                     {scorchedNames.has(p.name) && <span className="badge b-scorch">🔥 Scorched</span>}

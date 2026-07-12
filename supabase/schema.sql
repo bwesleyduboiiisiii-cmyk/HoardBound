@@ -20,6 +20,7 @@ create table if not exists players (
   room_id    uuid references rooms(id) on delete cascade,
   name       text not null,
   avatar     text,
+  avatar_url text,                              -- uploaded profile picture (data URL)
   is_bot     boolean default false,
   persona    text,
   gold       bigint default 0,
@@ -104,3 +105,6 @@ do $$ begin
     create policy dev_all_leaders on leaders for all using (true) with check (true);
   end if;
 end $$;
+
+-- Profile pictures (safe to run on an existing players table)
+alter table players add column if not exists avatar_url text;

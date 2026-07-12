@@ -5,6 +5,26 @@ import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEven
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, ROUNDS, rageStage } from "../../../lib/game";
 import Chronicle from "../../_components/Chronicle";
+import Avatar from "../../_components/Avatar";
+
+// Resize any uploaded image to a small square data URL (keeps DB rows tiny).
+function fileToAvatar(file, cb) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const s = 128, c = document.createElement("canvas");
+      c.width = s; c.height = s;
+      const ctx = c.getContext("2d");
+      const scale = Math.max(s / img.width, s / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      ctx.drawImage(img, (s - w) / 2, (s - h) / 2, w, h);
+      cb(c.toDataURL("image/jpeg", 0.82));
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
 
 const MOVES = [
   ["sneak","🪙 Sneak","Take a small, safe cut."],
@@ -22,6 +42,7 @@ export default function PlayPage() {
   const [players, setPlayers] = useState([]);
   const [me, setMe] = useState(null);
   const [name, setName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(null);
   const [err, setErr] = useState("");
   const [myMove, setMyMove] = useState(null);
   const [targeting, setTargeting] = useState(null);
@@ -34,6 +55,10 @@ export default function PlayPage() {
   const giftTimer = useRef(null);
   const roomRef = useRef(null); roomRef.current = room;
   const meRef = useRef(null); meRef.current = me;
+
+  useEffect(() => {
+    try { const p = JSON.parse(localStorage.getItem("hb_profile") || "null"); if (p) { setName(p.name || ""); setAvatarUrl(p.avatarUrl || null); } } catch (e) {}
+  }, []);
 
   useEffect(() => {
     getRoomByCode(code).then((r) => {
@@ -113,7 +138,8 @@ export default function PlayPage() {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      const { player } = await joinRoom(code, name.trim());
+      const { player } = await joinRoom(code, name.trim(), avatarUrl);
+      localStorage.setItem("hb_profile", JSON.stringify({ name: name.trim(), avatarUrl }));
       localStorage.setItem("hb_player_" + code, JSON.stringify(player));
       setMe(player);
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
@@ -142,12 +168,24 @@ export default function PlayPage() {
           <h1 style={{ fontSize: 30 }}>HOARDBOUND</h1><div className="mode">◆ Room {code} ◆</div>
         </div>
         <div className="panel">
-          <div className="label" style={{ marginBottom: 10 }}>Enter the table</div>
-          <input className="" style={{ width: "100%", background: "var(--obsidian-2)", border: "1px solid var(--stroke)",
-            borderRadius: 12, color: "var(--bone)", padding: 14, fontSize: 16, fontFamily: "'Barlow'" }}
-            value={name} maxLength={18} placeholder="Your hunter name"
-            onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onJoin()} />
-          <button className="btn" style={{ marginTop: 10 }} disabled={busy || !name.trim()} onClick={onJoin}>
+          <div className="label" style={{ marginBottom: 12 }}>Your profile</div>
+          <div className="profile-edit">
+            <label className="pfp-upload" title="Upload a profile picture">
+              {avatarUrl
+                ? <img className="pfp" src={avatarUrl} alt="" style={{ width: 84, height: 84 }} />
+                : <span className="pfp pfp-emoji" style={{ width: 84, height: 84, fontSize: 30 }}>📷</span>}
+              <span className="pfp-cam">＋</span>
+              <input type="file" accept="image/*" style={{ display: "none" }}
+                onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) fileToAvatar(f, setAvatarUrl); }} />
+            </label>
+            <div style={{ flex: 1 }}>
+              <input className="profile-name"
+                value={name} maxLength={18} placeholder="Your hunter name"
+                onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onJoin()} />
+              {avatarUrl && <button className="pfp-clear" onClick={() => setAvatarUrl(null)}>Remove photo</button>}
+            </div>
+          </div>
+          <button className="btn" style={{ marginTop: 14 }} disabled={busy || !name.trim()} onClick={onJoin}>
             {busy ? "Joining…" : "Take a Seat"}
           </button>
         </div>
@@ -161,9 +199,22 @@ export default function PlayPage() {
   const tier = rageTier(room.rage);
   const canMove = room.status === "active" && !myMove;
   const iAmScorched = (events || []).some((e) => e.kind === "scorch" && e.round === room.round && e.payload && e.payload.name === mine.name);
+  const liveOffers = pactOffers.filter((o) => !denied.includes(o.id) && !(myMove && myMove.action === "pact" && myMove.target_id === o.id));
+  let guideTip = "";
+  if (room.status === "lobby") guideTip = "We're in! Waiting for the host to begin…";
+  else if (room.status === "resolving") guideTip = "Fortunes shift… let's see how it lands.";
+  else if (room.status === "ended") guideTip = myRank === 1 ? "We did it — the hoard is ours! 👑" : "Good hunt. Ready for another?";
+  else if (liveOffers.length) guideTip = `${liveOffers[0].name} wants to ally — accept or deny!`;
+  else if (iAmScorched) guideTip = "The dragon burned us! Lie Low to stay safe.";
+  else if (!myMove) {
+    if (room.rage >= 85) guideTip = "Dragon's about to blow — Lie Low is safest.";
+    else if (room.rage >= 50) guideTip = "Rage is climbing. A quiet Sneak keeps it calm.";
+    else guideTip = "Your move! Grab big, or Sneak safe?";
+  } else guideTip = "Locked in. Hold tight for the reveal…";
 
   return (
     <div className="play-wrap">
+      <FloatingGuide avatarUrl={mine.avatar_url} emoji={mine.avatar} tip={guideTip} />
       {giftToast && (
         <div className={`play-gift-toast ${giftToast.mine ? "mine" : ""}`}>
           <div className="pg-label">{giftToast.label}{giftToast.mine ? " · for you!" : ""}</div>
@@ -172,7 +223,9 @@ export default function PlayPage() {
       )}
       <div className="topbar-row"><button className="navback" onClick={leave}>‹ Leave game</button></div>
       <div className="brand" style={{ textAlign: "center" }}>
-        <h1 style={{ fontSize: 26 }}>{mine.avatar} {mine.name}</h1>
+        <h1 style={{ fontSize: 26, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+          <Avatar url={mine.avatar_url} emoji={mine.avatar} size={40} /> {mine.name}
+        </h1>
         <div className="mode">◆ Room {code} · Round {room.round || "—"}/{ROUNDS} ◆</div>
       </div>
 
@@ -273,7 +326,7 @@ export default function PlayPage() {
           {ranked.map((p, i) => (
             <div key={p.id} className={`pl ${p.id === me.id ? "you" : ""}`}>
               <div className="av" style={{ fontSize: 14 }}>{i + 1}</div>
-              <div className="who"><b>{p.avatar} {p.name}</b></div>
+              <div className="who"><b><Avatar url={p.avatar_url} emoji={p.avatar} size={22} /> {p.name}</b></div>
               <div style={{ textAlign: "right" }}>
                 <div className="g">{fmt(p.gold)} ◈</div>
                 <div className="trust">Trust {p.trust}</div>
@@ -287,6 +340,56 @@ export default function PlayPage() {
         <div className="label" style={{ marginBottom: 8 }}>📜 Chronicle</div>
         <Chronicle events={events} />
       </div>
+    </div>
+  );
+}
+
+// A draggable companion: the player's uploaded avatar, floating with a per-round tip.
+function FloatingGuide({ avatarUrl, emoji, tip }) {
+  const [pos, setPos] = useState({ x: null, y: null });
+  const drag = useRef(null);
+  const posRef = useRef(pos); posRef.current = pos;
+
+  useEffect(() => {
+    if (posRef.current.x === null) {
+      setPos({ x: window.innerWidth - 96, y: window.innerHeight - 200 });
+    }
+    function onMove(e) {
+      if (!drag.current) return;
+      const p = e.touches ? e.touches[0] : e;
+      let x = p.clientX - drag.current.dx;
+      let y = p.clientY - drag.current.dy;
+      x = Math.max(6, Math.min(window.innerWidth - 74, x));
+      y = Math.max(6, Math.min(window.innerHeight - 74, y));
+      setPos({ x, y });
+      if (e.cancelable) e.preventDefault();
+    }
+    function onUp() { drag.current = null; }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onUp);
+    };
+  }, []);
+
+  function down(e) {
+    const p = e.touches ? e.touches[0] : e;
+    drag.current = { dx: p.clientX - posRef.current.x, dy: p.clientY - posRef.current.y };
+  }
+
+  if (pos.x === null) return null;
+  return (
+    <div className="floaty" style={{ left: pos.x, top: pos.y }} onMouseDown={down} onTouchStart={down}>
+      {tip && <div className="floaty-bubble">{tip}</div>}
+      <div className="floaty-av">
+        {avatarUrl ? <img src={avatarUrl} alt="" /> : <span className="floaty-emoji">{emoji || "🐲"}</span>}
+      </div>
+      <div className="floaty-grip">⠿ drag</div>
     </div>
   );
 }
