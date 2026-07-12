@@ -34,10 +34,10 @@ export default function HostPage() {
   const stepping = useRef(false);
 
   const SPEEDS = [
-    { label: "Slow", ms: 5000 },
-    { label: "Normal", ms: 3000 },
-    { label: "Fast", ms: 1500 },
-    { label: "Turbo", ms: 700 },
+    { label: "Chill", ms: 9000 },
+    { label: "Slow", ms: 6000 },
+    { label: "Normal", ms: 4000 },
+    { label: "Fast", ms: 2000 },
   ];
   // boot: restore host + room
   useEffect(() => {
