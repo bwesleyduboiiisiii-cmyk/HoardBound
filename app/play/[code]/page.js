@@ -11,6 +11,7 @@ const MOVES = [
   ["grab","💰 Grab","Big haul, big attention."],
   ["low","🌑 Lie Low","Warded from fire & theft."],
   ["betray","🗡️ Betray","Rob a rival's stash."],
+  ["pact","🤝 Form Pact","Ally up — bonus if you both hold."],
 ];
 
 export default function PlayPage() {
@@ -23,7 +24,7 @@ export default function PlayPage() {
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
   const [myMove, setMyMove] = useState(null);
-  const [betraying, setBetraying] = useState(false);
+  const [targeting, setTargeting] = useState(null);
   const [busy, setBusy] = useState(false);
   const [events, setEvents] = useState([]);
   const roomRef = useRef(null); roomRef.current = room;
@@ -75,7 +76,7 @@ export default function PlayPage() {
 
   async function choose(action, targetId = null) {
     await submitMove(room.id, me.id, room.round, action, targetId);
-    setBetraying(false);
+    setTargeting(null);
     refresh();
   }
 
@@ -147,26 +148,28 @@ export default function PlayPage() {
       {canMove && (
         <div className="panel">
           <div className="label" style={{ marginBottom: 10 }}>Choose your move</div>
-          {!betraying ? (
+          {!targeting ? (
             <div className="actions">
               {MOVES.map(([a, t, d]) => (
-                <button key={a} className={`act ${a}`} onClick={() => a === "betray" ? setBetraying(true) : choose(a)}>
+                <button key={a} className={`act ${a}`} onClick={() => (a === "betray" || a === "pact") ? setTargeting(a) : choose(a)}>
                   <div className="t">{t}</div><div className="d">{d}</div>
                 </button>
               ))}
             </div>
           ) : (
             <>
-              <div style={{ fontSize: 12, color: "var(--ash)", marginBottom: 8 }}>Rob whose stash?</div>
+              <div style={{ fontSize: 12, color: "var(--ash)", marginBottom: 8 }}>
+                {targeting === "pact" ? "Offer a pact to whom?" : "Rob whose stash?"}
+              </div>
               <div className="players">
                 {players.filter((p) => p.id !== me.id).map((p) => (
                   <button key={p.id} className="act" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                    onClick={() => choose("betray", p.id)}>
+                    onClick={() => choose(targeting, p.id)}>
                     <span>{p.avatar} {p.name}</span><span className="g">{fmt(p.gold)} ◈</span>
                   </button>
                 ))}
               </div>
-              <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => setBetraying(false)}>Back</button>
+              <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => setTargeting(null)}>Back</button>
             </>
           )}
         </div>

@@ -95,6 +95,7 @@ a{color:inherit;text-decoration:none}
 .act .d{font-size:11px;color:var(--ash);margin-top:3px;line-height:1.3}
 .act.grab .t{color:var(--ember)} .act.betray .t{color:#e08bd6}
 .act.low .t{color:var(--good)} .act.sneak .t{color:var(--gold)}
+.act.pact .t{color:#7fd0c0}
 .act.chosen{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
 
 /* ---- Chronicle / feed ---- */
