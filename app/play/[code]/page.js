@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents } from "../../../lib/roomApi";
+import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents, setConnected } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, ROUNDS, rageStage } from "../../../lib/game";
 import Chronicle from "../../_components/Chronicle";
@@ -46,6 +46,15 @@ export default function PlayPage() {
     return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id, me?.id]);
+
+  // presence: mark this player connected while their controller is open
+  useEffect(() => {
+    if (!me?.id) return;
+    setConnected(me.id, true);
+    const off = () => setConnected(me.id, false);
+    window.addEventListener("pagehide", off);
+    return () => { window.removeEventListener("pagehide", off); setConnected(me.id, false); };
+  }, [me?.id]);
 
   async function refresh() {
     const r = roomRef.current; if (!r?.id) return;
@@ -129,6 +138,19 @@ export default function PlayPage() {
         <div className="m"><div className="k">Trust</div><div className="v" style={{ color: "var(--bone)" }}>{mine.trust}</div></div>
         <div className="m"><div className="k">Rank</div><div className="v" style={{ color: "var(--bone)" }}>{myRank || "—"}</div></div>
       </div>
+
+      {(() => {
+        const ally = players.find((p) => p.id === mine.pact_with);
+        const dbl = room.modifiers && room.modifiers.doubleSneak && room.modifiers.doubleSneak[mine.id];
+        if (!mine.warded && !ally && !dbl) return null;
+        return (
+          <div className="status-row">
+            {mine.warded && <span className="sbadge ward">🛡 Warded</span>}
+            {ally && <span className="sbadge ally">🤝 Allied with {ally.name}</span>}
+            {dbl && <span className="sbadge buff">✨ Double Sneak ready</span>}
+          </div>
+        );
+      })()}
 
       <div className="panel">
         <div className="rage-row">

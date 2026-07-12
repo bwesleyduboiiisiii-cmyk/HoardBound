@@ -97,7 +97,7 @@ export default function LivePage() {
   if (!room) return <div className="viewer"><div className="waiting" style={{ margin: "auto" }}>Waiting for the table “{code}”…</div></div>;
 
   const tier = rageTier(room.rage);
-  const winner = ranked[0];
+  const winner = players.slice().sort((a, b) => b.gold - a.gold)[0];
 
   return (
     <div className={`viewer ${transparent ? "transparent" : ""}`}>

@@ -118,7 +118,6 @@ a{color:inherit;text-decoration:none}
 .dir-btn{border:1px solid var(--amethyst-deep);background:rgba(107,63,160,.14);color:#d6c9f5;
   border-radius:10px;padding:9px;font-size:11.5px;cursor:pointer;font-family:'Barlow';font-weight:600;transition:background .2s}
 .dir-btn:hover{background:rgba(107,63,160,.3)}
-.dir-btn.gift{border-color:#6b2f52;background:rgba(255,111,174,.1);color:#ff9ecb}
 
 /* ---- Landing ---- */
 .landing{max-width:520px;margin:0 auto;padding:60px 20px;text-align:center}
@@ -462,3 +461,10 @@ body:has(.host-wrap.cockpit)::before{
   .landing-logo{display:none}
   .landing-lair::before{opacity:1}
 }
+
+/* player status badges */
+.status-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:-4px}
+.sbadge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid}
+.sbadge.ward{color:#9fe0c0;border-color:#2f6a52;background:rgba(80,220,140,.12)}
+.sbadge.ally{color:#7fd0c0;border-color:#2f6a6a;background:rgba(80,200,200,.12)}
+.sbadge.buff{color:var(--gold);border-color:#5a4326;background:rgba(245,196,81,.12)}

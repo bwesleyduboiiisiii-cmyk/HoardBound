@@ -36,7 +36,7 @@ create table if not exists moves (
   room_id    uuid references rooms(id) on delete cascade,
   player_id  uuid references players(id) on delete cascade,
   round      int not null,
-  action     text not null,               -- sneak | grab | low | betray | idle
+  action     text not null,               -- sneak | grab | low | betray | pact | idle
   target_id  uuid,
   created_at timestamptz default now(),
   unique (room_id, player_id, round)

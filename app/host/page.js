@@ -131,6 +131,14 @@ export default function HostPage() {
     const alert = await fireGift(room, type, { senderName: "Host" });
     setGift(alert);
     setTimeout(() => setGift(null), 4200);
+    // "Turn the Table" reverses the overlay for 20s, then flips back on its own
+    if (alert && alert.effect === "Turn the Table") {
+      setTimeout(async () => {
+        const r = roomRef.current;
+        const mods = { ...((r && r.modifiers) || {}), reverseLeaderboard: false };
+        try { await supabase.from("rooms").update({ modifiers: mods }).eq("id", r ? r.id : room.id); } catch (e) {}
+      }, 20000);
+    }
   }
   async function onReset() { await resetGame(room.id); setEvents([]); }
   async function onEnd() {
@@ -192,7 +200,7 @@ export default function HostPage() {
                 <div className="av">{p.avatar}</div>
                 <div className="who"><b>{p.name}{p.is_bot && <span className="badge b-bot">bot</span>}</b></div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: "var(--ash)", fontSize: 12 }}>{p.is_bot ? "ready" : "joined"}</span>
+                  <span style={{ color: "var(--ash)", fontSize: 12 }}>{p.is_bot ? "ready" : (p.connected === false ? "offline" : "joined")}</span>
                   <button className="kick" title={`Remove ${p.name}`} onClick={() => onKick(p)}>✕</button>
                 </div>
               </div>
