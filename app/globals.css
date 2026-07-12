@@ -603,3 +603,9 @@ body:has(.host-wrap.cockpit)::before{
 .auth-tab{flex:1;background:var(--obsidian-2);border:1px solid var(--stroke);color:var(--ash);border-radius:10px;
   padding:11px;font-family:'Barlow';font-weight:700;cursor:pointer;transition:all .15s}
 .auth-tab.on{border-color:var(--gold);color:var(--gold);background:rgba(245,196,81,.10)}
+
+/* dragon narration card */
+.narr-card.dragon{border-color:#c8462a;background:linear-gradient(180deg,#2a1310,#160b0a);
+  box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 40px rgba(229,98,46,.35)}
+.narr-card.dragon .narr-kicker{color:#ff8a5c}
+.narr-card.dragon .narr-line{color:#ffd9c2}

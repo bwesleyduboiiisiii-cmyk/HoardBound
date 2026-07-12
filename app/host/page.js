@@ -126,47 +126,78 @@ export default function HostPage() {
   }
   async function onStart() { await startRound(room.id, 1); }
   async function onResolve(narrate = false) {
+    if (narrate) primeAudio(); // unlock audio during this click so the ElevenLabs clip can play
     setBusy(true);
     try {
       const res = await resolveRound(room);
       await refresh();
-      if (narrate && res && res.events && res.events.length) startNarration(res.events, room.round);
+      if (narrate && res && res.events && res.events.length) startNarration(res.events, room.round, res.ended);
     } finally { setBusy(false); }
   }
   async function onNext() { await startRound(room.id, room.round + 1); await refresh(); }
 
   const audioRef = useRef(null);
+  const SILENT_WAV = "data:audio/wav;base64,UklGRmQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==";
+  function primeAudio() {
+    // Called during a click gesture so the browser will allow later programmatic playback.
+    try {
+      if (!audioRef.current) audioRef.current = new Audio();
+      const a = audioRef.current;
+      a.muted = true; a.src = SILENT_WAV;
+      const p = a.play();
+      if (p && p.then) p.then(() => { try { a.pause(); a.currentTime = 0; a.muted = false; } catch (e) {} }).catch(() => {});
+    } catch (e) {}
+  }
   function stopAudio() {
-    try { if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; } } catch (e) {}
+    try { if (audioRef.current) { audioRef.current.pause(); } } catch (e) {}
     try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
   }
-  function fallbackSpeak(text, onDone) {
+  function fallbackSpeak(text, who, onDone) {
     try {
       if (!window.speechSynthesis) { setTimeout(onDone, 2200); return; }
       const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1.03; u.pitch = 0.9;
+      if (who === "dragon") { u.rate = 0.85; u.pitch = 0.2; } else { u.rate = 1.03; u.pitch = 0.9; }
       u.onend = () => onDone && onDone();
       window.speechSynthesis.speak(u);
     } catch (e) { setTimeout(onDone, 2200); }
   }
-  async function speak(text, onDone) {
-    stopAudio();
+  async function speak(text, who, onDone) {
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
     try {
-      const res = await fetch("/api/narrate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+      const res = await fetch("/api/narrate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, who }) });
       if (res.ok && (res.headers.get("content-type") || "").includes("audio")) {
         const url = URL.createObjectURL(await res.blob());
-        const a = new Audio(url); audioRef.current = a;
-        a.onended = () => { URL.revokeObjectURL(url); if (audioRef.current === a) onDone && onDone(); };
-        a.onerror = () => { URL.revokeObjectURL(url); fallbackSpeak(text, onDone); };
-        await a.play().catch(() => fallbackSpeak(text, onDone));
+        if (!audioRef.current) audioRef.current = new Audio();
+        const a = audioRef.current;
+        a.muted = false; a.src = url;
+        a.onended = () => { URL.revokeObjectURL(url); onDone && onDone(); };
+        a.onerror = () => { URL.revokeObjectURL(url); fallbackSpeak(text, who, onDone); };
+        await a.play().catch(() => fallbackSpeak(text, who, onDone));
         return;
       }
     } catch (e) {}
-    fallbackSpeak(text, onDone); // no key / error -> browser voice
+    fallbackSpeak(text, who, onDone);
   }
-  function startNarration(events, round) {
-    const lines = [`Round ${round}. Here is how it unfolded…`,
-      ...events.map(narrationLine).filter(Boolean)];
+  function startNarration(events, round, ended) {
+    const lines = [{ text: `Round ${round}. Here is how it unfolded…`, who: "narrator" }];
+    events.forEach((e) => {
+      const text = narrationLine(e);
+      if (!text) return;
+      if (e.kind === "awaken") {
+        const hasVictims = e.payload && e.payload.victims && e.payload.victims.length;
+        lines.push({ text: hasVictims ? "You dared to touch my hoard?! Then BURN!" : "I stir… tread carefully, little thieves.", who: "dragon" });
+        lines.push({ text, who: "narrator" });
+      } else if (e.kind === "scorch") {
+        lines.push({ text, who: "dragon" });
+      } else {
+        lines.push({ text, who: "narrator" });
+      }
+    });
+    lines.push({
+      text: ended ? "And that is the final round. The hoard is claimed — what a hunt!"
+        : `That wraps round ${round}. Send your power-ups now, hunters — round ${round + 1} begins in a moment…`,
+      who: "narrator",
+    });
     try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
     setNarration({ lines, i: 0 });
   }
@@ -182,7 +213,8 @@ export default function HostPage() {
     }
     let done = false;
     const advance = () => { if (done) return; done = true; setNarration((n) => (n ? { ...n, i: n.i + 1 } : n)); };
-    speak(narration.lines[narration.i], advance);
+    const cur = narration.lines[narration.i];
+    speak(cur.text, cur.who, advance);
     const safety = setTimeout(advance, 9000); // never get stuck if audio/speech never signals end
     return () => clearTimeout(safety);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -194,6 +226,7 @@ export default function HostPage() {
     if (!auto || !room) return;
     if (room.status === "ended") { setAuto(false); return; }
     if (room.status !== "active" && room.status !== "resolving") return;
+    if (narration) return; // wait: let the round narration finish reading before advancing
     const autoDelay = TIMERS[timerIdx].secs > 0 ? TIMERS[timerIdx].secs * 1000 : SPEEDS[speedIdx].ms;
     const t = setTimeout(async () => {
       if (stepping.current) return;
@@ -201,12 +234,12 @@ export default function HostPage() {
       try {
         const r = roomRef.current;
         if (!r) return;
-        if (r.status === "active") await onResolve();
+        if (r.status === "active") await onResolve(true); // narrate the round, then wait for it
         else if (r.status === "resolving") await onNext();
       } finally { stepping.current = false; }
     }, autoDelay);
     return () => clearTimeout(t);
-  }, [auto, room && room.status, room && room.round, speedIdx, timerIdx]);
+  }, [auto, room && room.status, room && room.round, speedIdx, timerIdx, narration]);
 
   // Round timer: when enabled (and autoplay is off), count down and auto-resolve at 0.
   useEffect(() => {
@@ -355,18 +388,22 @@ export default function HostPage() {
 
   return (
     <div className="host-wrap cockpit">
-      {narration && (
-        <div className="narration" onClick={endNarration}>
-          <div className="narr-card" onClick={(e) => e.stopPropagation()}>
-            <div className="narr-kicker">📜 The Chronicle Speaks</div>
-            <div className="narr-line">{narration.lines[Math.min(narration.i, narration.lines.length - 1)]}</div>
-            <div className="narr-foot">
-              <span>{Math.min(narration.i + 1, narration.lines.length)} / {narration.lines.length}</span>
-              <button className="btn ghost" onClick={endNarration}>Skip ▸</button>
+      {narration && (() => {
+        const cur = narration.lines[Math.min(narration.i, narration.lines.length - 1)];
+        const isDragon = cur && cur.who === "dragon";
+        return (
+          <div className="narration" onClick={endNarration}>
+            <div className={`narr-card ${isDragon ? "dragon" : ""}`} onClick={(e) => e.stopPropagation()}>
+              <div className="narr-kicker">{isDragon ? "🐉 The Dragon Speaks" : "📜 The Chronicle Speaks"}</div>
+              <div className="narr-line">{cur && cur.text}</div>
+              <div className="narr-foot">
+                <span>{Math.min(narration.i + 1, narration.lines.length)} / {narration.lines.length}</span>
+                <button className="btn ghost" onClick={endNarration}>Skip ▸</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
       {gift && (
         <div className="gift-toast">
           <span className="gt-emoji">{gift.emoji}</span>
@@ -478,7 +515,7 @@ export default function HostPage() {
           )}
           {(room.status === "active" || room.status === "resolving") && (
             <div className="auto-row">
-              <button className={`btn ghost auto-btn ${auto ? "on" : ""}`} onClick={() => setAuto((a) => !a)}>
+              <button className={`btn ghost auto-btn ${auto ? "on" : ""}`} onClick={() => { primeAudio(); setAuto((a) => !a); }}>
                 {auto ? "⏸ Autoplay ON" : "▶ Autoplay"}
               </button>
               <button className="btn ghost" onClick={() => setSpeedIdx((i) => (i + 1) % SPEEDS.length)} title="Autoplay speed">
