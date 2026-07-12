@@ -11,6 +11,7 @@ create table if not exists rooms (
   rage        int  not null default 0,
   hoard       bigint not null default 50000,
   double_next boolean not null default false,
+  modifiers   jsonb not null default '{}'::jsonb,
   created_at  timestamptz default now()
 );
 
@@ -84,3 +85,6 @@ begin
     create policy dev_all_events  on events  for all using (true) with check (true);
   end if;
 end $$;
+
+-- Gift power-ups: round modifiers (safe to run on existing rooms tables)
+alter table rooms add column if not exists modifiers jsonb not null default '{}'::jsonb;

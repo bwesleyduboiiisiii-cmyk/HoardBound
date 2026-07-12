@@ -18,7 +18,7 @@ function bannerFor(e) {
       ? { big: "THE DRAGON AWAKENS", small: `${p.victims.join(" & ")} burned for their greed`, cls: "fire" }
       : { big: "THE DRAGON STIRS", small: "The wary slipped into shadow", cls: "fire" };
     case "oath": return { big: "OATH BROKEN", small: `⚔ ${p.from} turned on ${p.to}`, cls: "fire" };
-    case "gift": return { big: "A GIFT!", small: p.text, cls: "pact" };
+    case "gift": return { big: p.label || "A GIFT!", small: p.effect ? `${p.effect} — ${p.text}` : p.text, cls: "gift" };
     case "director": return { big: p.label, small: p.text, cls: "pact" };
     default: return null;
   }
@@ -74,8 +74,9 @@ export default function LivePage() {
     }
   }
 
-  // FLIP animation on the leaderboard
-  const ranked = players.slice().sort((a, b) => b.gold - a.gold);
+  // FLIP animation on the leaderboard (reversed while a "Turn the Table" gift is active)
+  const reversed = !!(room && room.modifiers && room.modifiers.reverseLeaderboard);
+  const ranked = players.slice().sort((a, b) => reversed ? a.gold - b.gold : b.gold - a.gold);
   useLayoutEffect(() => {
     Object.entries(rowRefs.current).forEach(([id, el]) => {
       if (!el) return;

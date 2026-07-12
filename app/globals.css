@@ -402,3 +402,22 @@ body:has(.host-wrap.cockpit)::before{
   border:1px solid var(--stroke);background:rgba(229,83,60,.10);color:#ff8a72;
   font-size:13px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
 .kick:hover{background:rgba(229,83,60,.24);border-color:var(--bad);color:#fff}
+
+/* gift power-ups */
+.gift-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gift-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 8px;border-radius:12px;
+  background:linear-gradient(180deg, rgba(139,92,246,.14), rgba(20,14,32,.6));border:1px solid #5a4326;color:var(--bone);cursor:pointer;font-family:'Barlow'}
+.gift-btn:hover{border-color:var(--gold);transform:translateY(-1px)}
+.gift-btn .ge{font-size:22px}
+.gift-btn .gt{font-size:12px;font-weight:700}
+.gift-btn .gc{font-size:11px;color:var(--gold)}
+.gift-toast{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:12px;
+  padding:12px 20px;border-radius:14px;background:linear-gradient(180deg,#2a1e46,#160f28);border:1px solid var(--gold);
+  box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 24px rgba(245,196,81,.25);animation:giftPop .3s ease-out;max-width:90%}
+.gift-toast .gt-emoji{font-size:32px}
+.gift-toast .gt-power{font-family:'Cinzel',serif;color:var(--gold);font-size:15px;font-weight:700}
+.gift-toast .gt-line{font-size:13px;color:var(--bone)}
+@keyframes giftPop{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+
+.banner.gift{border-color:var(--gold)}
+.banner.gift .big{color:var(--gold)}

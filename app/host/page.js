@@ -4,10 +4,10 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import {
   createRoom, getPlayers, getEvents, getMoveCount, addBot,
-  startRound, resolveRound, fireDirector, resetGame, endGame, removePlayer, subscribeRoom, uuid,
+  startRound, resolveRound, fireDirector, fireGift, resetGame, endGame, removePlayer, subscribeRoom, uuid,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
-import { ROUNDS, rageTier, fmt, rageStage } from "../../lib/game";
+import { ROUNDS, rageTier, fmt, rageStage, GIFT_ORDER, GIFT_META } from "../../lib/game";
 import Chronicle from "../_components/Chronicle";
 
 const DIRECTOR = [
@@ -26,6 +26,7 @@ export default function HostPage() {
   const [qr, setQr] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [gift, setGift] = useState(null);
   const roomRef = useRef(null);
   roomRef.current = room;
 
@@ -98,6 +99,11 @@ export default function HostPage() {
   }
   async function onNext() { await startRound(room.id, room.round + 1); }
   async function onDirector(kind) { await fireDirector(room, kind); }
+  async function onGift(type) {
+    const alert = await fireGift(room, type, { senderName: "Host" });
+    setGift(alert);
+    setTimeout(() => setGift(null), 4200);
+  }
   async function onReset() { await resetGame(room.id); setEvents([]); }
   async function onEnd() {
     if (!window.confirm("End this game now? It'll jump to the final standings.")) return;
@@ -184,6 +190,12 @@ export default function HostPage() {
 
   return (
     <div className="host-wrap cockpit">
+      {gift && (
+        <div className="gift-toast">
+          <span className="gt-emoji">{gift.emoji}</span>
+          <div><div className="gt-power">{gift.power} — {gift.effect}</div><div className="gt-line">{gift.line}</div></div>
+        </div>
+      )}
       <div className="brand">
         <h1 style={{ fontSize: 26 }}>HOARDBOUND</h1><div className="mode">◆ Dragon&apos;s Hoard · Host ◆</div>
       </div>
@@ -230,14 +242,24 @@ export default function HostPage() {
         </div>
       </div>
 
-      {/* right: director + chronicle */}
+      {/* right: director + gifts + chronicle */}
       <div className="host-right">
         <div className="panel">
           <div className="label" style={{ color: "var(--amethyst)", marginBottom: 10 }}>🎬 Director</div>
           <div className="dir-grid">
             {DIRECTOR.map(([k, l]) => <button key={k} className="dir-btn" onClick={() => onDirector(k)}>{l}</button>)}
-            <button className="dir-btn gift" onClick={() => onDirector("gift_roses")}>🌹 Gift: Roses</button>
-            <button className="dir-btn gift" onClick={() => onDirector("gift_storm")}>☄️ Gift: Storm</button>
+          </div>
+        </div>
+        <div className="panel">
+          <div className="label" style={{ color: "var(--amethyst)", marginBottom: 10 }}>🎁 Gift Power-Ups</div>
+          <div className="gift-grid">
+            {GIFT_ORDER.map((t) => (
+              <button key={t} className="gift-btn" onClick={() => onGift(t)} title={GIFT_META[t].blurb}>
+                <span className="ge">{GIFT_META[t].emoji}</span>
+                <span className="gt">{GIFT_META[t].power}</span>
+                <span className="gc">{GIFT_META[t].coins}◈</span>
+              </button>
+            ))}
           </div>
         </div>
         <div className="panel logpanel">
