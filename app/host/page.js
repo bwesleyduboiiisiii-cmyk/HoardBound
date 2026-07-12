@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import {
   createRoom, getOrCreateRoom, stableHostId, getPlayers, getEvents, getMoveCount, addBot, renamePlayer, getAvatarsByNames,
   startRound, resolveRound, fireDirector, fireGift, resetGame, endGame, removePlayer, subscribeRoom, uuid,
+  setHoard, grantGold, getMovedPlayerIds,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
 import { ROUNDS, rageTier, fmt, rageStage, GIFT_ORDER, GIFT_META, narrationLine, dragonScorchLine } from "../../lib/game";
@@ -24,6 +25,8 @@ export default function HostPage() {
   const [players, setPlayers] = useState([]);
   const [events, setEvents] = useState([]);
   const [moveCount, setMoveCount] = useState(0);
+  const [movedIds, setMovedIds] = useState([]);
+  const [hoardInput, setHoardInput] = useState(50000);
   const [announce, setAnnounce] = useState(null);
   const [voiceWarn, setVoiceWarn] = useState(null);
   const voiceWarnedRef = useRef(false);
@@ -126,7 +129,11 @@ export default function HostPage() {
     const humanNames = ps.filter((p) => !p.is_bot).map((p) => p.name);
     if (humanNames.length) { try { setAvatars(await getAvatarsByNames(humanNames)); } catch (e) {} }
     setEvents(await getEvents(r.id, 250));
-    if (fresh?.round) setMoveCount(await getMoveCount(r.id, fresh.round));
+    if (fresh?.round) {
+      setMoveCount(await getMoveCount(r.id, fresh.round));
+      if (fresh.status === "active") { try { setMovedIds(await getMovedPlayerIds(r.id, fresh.round)); } catch (e) {} }
+      else setMovedIds([]);
+    }
   }
 
   async function onCreate() {
@@ -163,7 +170,15 @@ export default function HostPage() {
     setPlayers((prev) => prev.filter((x) => x.id !== p.id));
     try { await removePlayer(p.id); } catch (e) { setErr(e.message); }
   }
-  async function onStart() { await startRound(room.id, 1); }
+  async function onGrant(p) {
+    const raw = window.prompt(`Give gold to ${p.name} (use a negative number to take some away):`, "1000");
+    if (raw === null) return;
+    const delta = Math.round(Number(raw));
+    if (!delta || Number.isNaN(delta)) return;
+    setPlayers((prev) => prev.map((x) => x.id === p.id ? { ...x, gold: Math.max(0, (x.gold || 0) + delta) } : x));
+    try { await grantGold(p.id, delta); await refresh(); } catch (e) { setErr(e.message); }
+  }
+  async function onStart() { await setHoard(room.id, hoardInput); await startRound(room.id, 1); await refresh(); }
   async function onResolve(narrate = false) {
     if (narrate) primeAudio(); // unlock audio during this click so the ElevenLabs clip can play
     setBusy(true);
@@ -444,8 +459,23 @@ export default function HostPage() {
             <button className="btn ghost" style={{ width: "auto", padding: "0 20px", whiteSpace: "nowrap" }} onClick={onAddBot}>+ Add Bot</button>
           </div>
         </div>
-        <button className="btn" disabled={players.length < 2} onClick={onStart}>
-          {players.length < 2 ? "Need 2+ hunters" : "Begin the Plunder"}
+        <div className="hoard-set">
+          <div className="label">Starting Hoard</div>
+          <div className="hoard-row">
+            <input type="number" className="hoard-input" min={1000} step={1000} value={hoardInput}
+              onChange={(e) => setHoardInput(Math.max(0, Math.round(Number(e.target.value) || 0)))} />
+            <span className="hoard-suffix">◈</span>
+          </div>
+          <div className="hoard-presets">
+            {[25000, 50000, 100000, 250000].map((v) => (
+              <button key={v} className={`chip ${hoardInput === v ? "on" : ""}`} onClick={() => setHoardInput(v)}>
+                {v >= 1000 ? (v / 1000) + "k" : v}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button className="btn" disabled={players.length < 2 || hoardInput < 1000} onClick={onStart}>
+          {players.length < 2 ? "Need 2+ hunters" : `Begin the Plunder · ${fmt(hoardInput)}◈`}
         </button>
         <div className="dock-actions">
           <button className="btn ghost" onClick={onLeave}>⟵ Leave</button>
@@ -563,6 +593,11 @@ export default function HostPage() {
                     {p.warded && <span className="badge b-ward">Warded</span>}
                     {p.pact_with && <span className="badge b-pact">Pact</span>}
                     {p.is_bot && <span className="badge b-bot">bot</span>}
+                    {room.status === "active" && !p.is_bot && (
+                      movedIds.includes(p.id)
+                        ? <span className="badge b-ready">✓ ready</span>
+                        : <span className="badge b-waiting">… choosing</span>
+                    )}
                   </b>
                   <span className="tag">{i === 0 ? "★ leading" : `rank ${i + 1}`}</span>
                 </div>
@@ -571,6 +606,7 @@ export default function HostPage() {
                     <div className="g" style={{ fontSize: 15 }}>{fmt(p.gold)} ◈</div>
                     <div className="trust">Trust {p.trust}</div>
                   </div>
+                  <button className="grant" title={`Give gold to ${p.name}`} onClick={() => onGrant(p)}>◈+</button>
                   <button className="kick" title={`Remove ${p.name}`} onClick={() => onKick(p)}>✕</button>
                 </div>
               </div>

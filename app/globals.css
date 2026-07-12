@@ -632,3 +632,20 @@ body:has(.host-wrap.cockpit)::before{
 .name-btn{background:rgba(245,196,81,.14);border:1px solid rgba(245,196,81,.5);color:var(--gold);
   width:30px;height:30px;border-radius:8px;font-size:14px;cursor:pointer;line-height:1}
 .name-btn.ghost{background:transparent;border-color:var(--stroke);color:var(--ash)}
+
+/* hoard chooser (lobby) */
+.hoard-set{margin:6px 0 14px;text-align:center}
+.hoard-row{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px}
+.hoard-input{background:rgba(8,5,14,.9);border:1px solid var(--gold);border-radius:12px;color:var(--gold);
+  font-family:'Cinzel',serif;font-size:24px;text-align:center;padding:10px 14px;width:200px}
+.hoard-suffix{color:var(--gold);font-size:22px}
+.hoard-presets{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.chip{background:var(--obsidian-2);border:1px solid var(--stroke);color:var(--ash);border-radius:999px;
+  padding:6px 14px;font-family:'Barlow';font-weight:700;font-size:13px;cursor:pointer}
+.chip.on{border-color:var(--gold);color:var(--gold);background:rgba(245,196,81,.12)}
+
+/* host row buttons + status badges */
+.grant{background:rgba(245,196,81,.12);border:1px solid rgba(245,196,81,.5);color:var(--gold);
+  width:34px;height:30px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;line-height:1}
+.badge.b-ready{background:rgba(74,222,128,.16);color:#8ef0b0;border:1px solid rgba(74,222,128,.4)}
+.badge.b-waiting{background:rgba(245,196,81,.14);color:var(--gold);border:1px solid rgba(245,196,81,.4)}
