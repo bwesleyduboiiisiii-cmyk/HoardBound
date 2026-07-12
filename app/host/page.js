@@ -7,7 +7,7 @@ import {
   startRound, resolveRound, fireDirector, resetGame, endGame, subscribeRoom, uuid,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
-import { ROUNDS, rageTier, fmt } from "../../lib/game";
+import { ROUNDS, rageTier, fmt, rageStage } from "../../lib/game";
 import Chronicle from "../_components/Chronicle";
 
 const DIRECTOR = [
@@ -185,7 +185,7 @@ export default function HostPage() {
         <div className="panel stage">
           <div className="subbar"><span>Round <b style={{ color: "var(--bone)" }}>{room.round}</b> / {ROUNDS}</span>
             <span style={{ color: "var(--gold)" }}>{room.double_next ? "✨ Double armed" : ""}</span></div>
-          <div className={`dragon ${room.rage >= 88 ? "wrath" : room.rage >= 50 ? "stir" : ""}`}>🐉</div>
+          <img className={`dragon-img ${rageStage(room.rage)}`} src={`/dragon-${rageStage(room.rage)}.png`} alt="dragon" />
           <div className="tier" style={{ color: tier.c }}>{tier.n}</div>
           <div className="meter"><span style={{ width: Math.min(100, room.rage) + "%" }} /></div>
           <div className="meter-cap"><span>Dragon&apos;s Rage</span><span>{room.rage} / 100</span></div>

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
-import { rageTier, fmt, ROUNDS } from "../../../lib/game";
+import { rageTier, fmt, ROUNDS, rageStage } from "../../../lib/game";
 import Chronicle from "../../_components/Chronicle";
 
 const MOVES = [
@@ -130,11 +130,16 @@ export default function PlayPage() {
       </div>
 
       <div className="panel">
-        <div className="subbar" style={{ marginBottom: 8 }}>
-          <span className="label">Dragon&apos;s Rage</span>
-          <span style={{ color: tier.c, fontFamily: "'Cinzel',serif", fontSize: 13 }}>{tier.n} · {room.rage}/100</span>
+        <div className="rage-row">
+          <img className={`dragon-mini ${rageStage(room.rage)}`} src={`/dragon-${rageStage(room.rage)}.png`} alt="dragon" />
+          <div style={{ flex: 1 }}>
+            <div className="subbar" style={{ marginBottom: 8 }}>
+              <span className="label">Dragon&apos;s Rage</span>
+              <span style={{ color: tier.c, fontFamily: "'Cinzel',serif", fontSize: 13 }}>{tier.n} · {room.rage}/100</span>
+            </div>
+            <div className="meter"><span style={{ width: Math.min(100, room.rage) + "%" }} /></div>
+          </div>
         </div>
-        <div className="meter"><span style={{ width: Math.min(100, room.rage) + "%" }} /></div>
       </div>
 
       {room.status === "lobby" && <div className="panel waiting">You&apos;re in. Waiting for the host to begin…</div>}

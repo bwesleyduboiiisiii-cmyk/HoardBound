@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getRoomByCode, getPlayers, getEvents, subscribeRoom } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
-import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL } from "../../../lib/game";
+import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL, rageStage } from "../../../lib/game";
 
 const feedClass = (k) =>
   k === "scorch" || k === "awaken" || k === "oath" || k === "betray_fail" ? "fire"
@@ -142,7 +142,7 @@ export default function LivePage() {
         <div className="card v-stage">
           <div className="v-stage-main">
             <div className="v-dragon-col">
-              <div className={`dragon ${room.rage >= 88 ? "wrath" : room.rage >= 50 ? "stir" : ""}`}>🐉</div>
+              <img className={`dragon-img ${rageStage(room.rage)}`} src={`/dragon-${rageStage(room.rage)}.png`} alt="dragon" />
               <div className="tier" style={{ color: tier.c }}>{tier.n}</div>
             </div>
             <div className="v-hoard-col">

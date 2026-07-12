@@ -382,3 +382,16 @@ body:has(.host-wrap.cockpit)::before{
     radial-gradient(135% 135% at 50% 40%, transparent 60%, rgba(0,0,0,.42)),
     url('/lair.jpg') center center / cover no-repeat;
 }
+
+/* dragon state artwork (sleep / awake / attack) */
+.dragon-img{display:block;margin:2px auto;width:160px;max-width:82%;height:auto;
+  filter:drop-shadow(0 10px 22px rgba(0,0,0,.55));animation:dragFloat 4.5s ease-in-out infinite}
+.dragon-img.attack{filter:drop-shadow(0 0 20px rgba(255,120,40,.55)) drop-shadow(0 10px 22px rgba(0,0,0,.5))}
+@keyframes dragFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.viewer .dragon-img{width:132px}
+.rage-row{display:flex;align-items:center;gap:12px}
+.dragon-mini{width:66px;height:auto;flex-shrink:0;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))}
+@media (orientation:portrait){
+  .host-wrap.cockpit .dragon-img{width:88px}
+  .viewer .dragon-img{width:112px}
+}
