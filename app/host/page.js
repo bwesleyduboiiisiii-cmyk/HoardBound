@@ -282,10 +282,9 @@ export default function HostPage() {
           <div className="label" style={{ color: "var(--amethyst)", marginBottom: 10 }}>🎁 Gift Power-Ups</div>
           <div className="gift-grid">
             {GIFT_ORDER.map((t) => (
-              <button key={t} className="gift-btn" onClick={() => onGift(t)} title={GIFT_META[t].blurb}>
+              <button key={t} className="gift-btn" onClick={() => onGift(t)} title={`${GIFT_META[t].coins}◈ · ${GIFT_META[t].blurb}`}>
                 <span className="ge">{GIFT_META[t].emoji}</span>
                 <span className="gt">{GIFT_META[t].power}</span>
-                <span className="gc">{GIFT_META[t].coins}◈</span>
               </button>
             ))}
           </div>
