@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents, setConnected } from "../../../lib/roomApi";
+import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents, setConnected, getPactOffers } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, ROUNDS, rageStage } from "../../../lib/game";
 import Chronicle from "../../_components/Chronicle";
@@ -28,6 +28,8 @@ export default function PlayPage() {
   const [busy, setBusy] = useState(false);
   const [events, setEvents] = useState([]);
   const [giftToast, setGiftToast] = useState(null);
+  const [pactOffers, setPactOffers] = useState([]);
+  const [denied, setDenied] = useState([]);
   const lastGift = useRef(undefined);
   const giftTimer = useRef(null);
   const roomRef = useRef(null); roomRef.current = room;
@@ -59,6 +61,9 @@ export default function PlayPage() {
     window.addEventListener("pagehide", off);
     return () => { window.removeEventListener("pagehide", off); setConnected(me.id, false); };
   }, [me?.id]);
+
+  // a fresh round means old pact denials no longer apply
+  useEffect(() => { setDenied([]); }, [room?.round]);
 
   async function refresh() {
     const r = roomRef.current; if (!r?.id) return;
@@ -93,6 +98,14 @@ export default function PlayPage() {
       const { data: mv } = await supabase.from("moves").select("*")
         .eq("room_id", r.id).eq("player_id", my.id).eq("round", fresh.round).maybeSingle();
       setMyMove(mv || null);
+      // incoming pact offers: another hunter chose Form Pact targeting me this round
+      if (fresh.status === "active") {
+        const { data: offers } = await supabase.from("moves").select("*")
+          .eq("room_id", r.id).eq("round", fresh.round).eq("action", "pact").eq("target_id", my.id);
+        setPactOffers((offers || [])
+          .filter((o) => o.player_id !== my.id)
+          .map((o) => { const off = ps.find((x) => x.id === o.player_id); return { id: o.player_id, name: off ? off.name : "A hunter" }; }));
+      } else setPactOffers([]);
     }
   }
 
@@ -147,6 +160,7 @@ export default function PlayPage() {
   const myRank = ranked.findIndex((p) => p.id === me.id) + 1;
   const tier = rageTier(room.rage);
   const canMove = room.status === "active" && !myMove;
+  const iAmScorched = (events || []).some((e) => e.kind === "scorch" && e.round === room.round && e.payload && e.payload.name === mine.name);
 
   return (
     <div className="play-wrap">
@@ -162,7 +176,7 @@ export default function PlayPage() {
         <div className="mode">◆ Room {code} · Round {room.round || "—"}/{ROUNDS} ◆</div>
       </div>
 
-      <div className="panel mini">
+      <div className={`panel mini ${iAmScorched ? "scorched" : ""}`}>
         <div className="m"><div className="k">Gold</div><div className="v">{fmt(mine.gold)}</div></div>
         <div className="m"><div className="k">Trust</div><div className="v" style={{ color: "var(--bone)" }}>{mine.trust}</div></div>
         <div className="m"><div className="k">Rank</div><div className="v" style={{ color: "var(--bone)" }}>{myRank || "—"}</div></div>
@@ -171,9 +185,10 @@ export default function PlayPage() {
       {(() => {
         const ally = players.find((p) => p.id === mine.pact_with);
         const dbl = room.modifiers && room.modifiers.doubleSneak && room.modifiers.doubleSneak[mine.id];
-        if (!mine.warded && !ally && !dbl) return null;
+        if (!mine.warded && !ally && !dbl && !iAmScorched) return null;
         return (
           <div className="status-row">
+            {iAmScorched && <span className="sbadge scorch">🔥 Scorched this round</span>}
             {mine.warded && <span className="sbadge ward">🛡 Warded</span>}
             {ally && <span className="sbadge ally">🤝 Allied with {ally.name}</span>}
             {dbl && <span className="sbadge buff">✨ Double Sneak ready</span>}
@@ -195,6 +210,18 @@ export default function PlayPage() {
       </div>
 
       {room.status === "lobby" && <div className="panel waiting">You&apos;re in. Waiting for the host to begin…</div>}
+
+      {room.status === "active" && pactOffers
+        .filter((o) => !denied.includes(o.id) && !(myMove && myMove.action === "pact" && myMove.target_id === o.id))
+        .map((o) => (
+          <div className="panel pact-offer" key={o.id}>
+            <div className="po-text">🤝 <b>{o.name}</b> offers you a pact this round.</div>
+            <div className="po-actions">
+              <button className="btn" onClick={() => choose("pact", o.id)}>Accept</button>
+              <button className="btn ghost" onClick={() => setDenied((d) => [...d, o.id])}>Deny</button>
+            </div>
+          </div>
+        ))}
 
       {canMove && (
         <div className="panel">
@@ -247,7 +274,10 @@ export default function PlayPage() {
             <div key={p.id} className={`pl ${p.id === me.id ? "you" : ""}`}>
               <div className="av" style={{ fontSize: 14 }}>{i + 1}</div>
               <div className="who"><b>{p.avatar} {p.name}</b></div>
-              <div className="g">{fmt(p.gold)} ◈</div>
+              <div style={{ textAlign: "right" }}>
+                <div className="g">{fmt(p.gold)} ◈</div>
+                <div className="trust">Trust {p.trust}</div>
+              </div>
             </div>
           ))}
         </div>

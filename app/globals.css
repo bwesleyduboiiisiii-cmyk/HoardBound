@@ -513,3 +513,27 @@ body:has(.host-wrap.cockpit)::before{
   .lb-row{grid-template-columns:34px 1fr 44px 74px;gap:6px;font-size:13px}
   .lb-row .lb-num:nth-child(4),.lb-row .lb-num:nth-child(5){display:none}
 }
+
+/* pact offer accept/deny */
+.pact-offer{border-color:#2f6a6a;background:linear-gradient(180deg, rgba(80,200,200,.10), rgba(20,14,32,.5))}
+.pact-offer .po-text{font-size:14px;color:var(--bone);margin-bottom:10px;text-align:center}
+.pact-offer .po-text b{color:#8ef0c8}
+.pact-offer .po-actions{display:flex;gap:8px}
+.pact-offer .po-actions .btn{flex:1;margin:0}
+
+/* scorched — burning effect that persists for the round */
+.pl.scorched, .brow.scorched, .panel.mini.scorched{
+  border-color:#c8462a !important;
+  background:linear-gradient(180deg, rgba(120,30,15,.30), rgba(22,10,8,.42));
+  animation:scorchPulse 1.6s ease-in-out infinite}
+@keyframes scorchPulse{
+  0%,100%{box-shadow:0 0 0 1px rgba(200,70,42,.5), 0 0 14px rgba(229,98,46,.35), inset 0 0 18px rgba(180,40,20,.20)}
+  50%{box-shadow:0 0 0 1px rgba(230,90,50,.75), 0 0 26px rgba(255,120,50,.6), inset 0 0 26px rgba(200,60,30,.35)}}
+.badge.b-scorch{background:rgba(229,98,46,.20);color:#ffb38a;border:1px solid #c8462a}
+.sbadge.scorch{color:#ffb38a;border-color:#c8462a;background:rgba(229,98,46,.15)}
+
+/* gift quantity field */
+.gift-qty{display:flex;align-items:center;gap:4px;color:var(--ash);font-size:12px}
+.gift-qty input{width:46px;height:26px;text-align:center;background:var(--obsidian-2);border:1px solid #5a4326;
+  border-radius:8px;color:var(--gold);font-family:'Barlow';font-weight:700;font-size:13px}
+.gift-qty input:focus{outline:none;border-color:var(--gold)}

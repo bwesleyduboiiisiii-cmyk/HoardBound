@@ -102,6 +102,9 @@ export default function LivePage() {
 
   const tier = rageTier(room.rage);
   const winner = players.slice().sort((a, b) => b.gold - a.gold)[0];
+  const scorchedNames = new Set(
+    (events || []).filter((e) => e.kind === "scorch" && e.round === room.round).map((e) => e.payload && e.payload.name)
+  );
   const patrons = (() => {
     const tally = {};
     for (const e of events) if (e.kind === "gift") { const s = e.payload && e.payload.sender; if (s) tally[s] = (tally[s] || 0) + 1; }
@@ -133,11 +136,12 @@ export default function LivePage() {
           <div className="board">
             {ranked.map((p, i) => (
               <div key={p.id} ref={(el) => (rowRefs.current[p.id] = el)}
-                className={`brow ${i === 0 ? "lead" : ""} ${p.scorched ? "scorched" : ""}`}>
+                className={`brow ${i === 0 ? "lead" : ""} ${scorchedNames.has(p.name) ? "scorched" : ""}`}>
                 <div className="rank">{i + 1}</div>
                 <div className="av">{p.avatar}</div>
                 <div>
                   <div className="nm">{p.name}
+                    {scorchedNames.has(p.name) && <span className="badge b-scorch">🔥 Scorched</span>}
                     {p.warded && <span className="badge b-ward">Warded</span>}
                     {p.pact_with && <span className="badge b-pact">Pact</span>}
                   </div>

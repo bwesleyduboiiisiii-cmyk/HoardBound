@@ -28,6 +28,7 @@ export default function HostPage() {
   const [err, setErr] = useState("");
   const [gift, setGift] = useState(null);
   const [botName, setBotName] = useState("");
+  const [giftQty, setGiftQty] = useState(1);
   const [auto, setAuto] = useState(false);
   const [speedIdx, setSpeedIdx] = useState(1);
   const [timerIdx, setTimerIdx] = useState(0);
@@ -165,8 +166,10 @@ export default function HostPage() {
 
   async function onDirector(kind) { await fireDirector(room, kind); }
   async function onGift(type) {
-    const alert = await fireGift(room, type, { senderName: "Host" });
-    setGift(alert);
+    const q = Math.max(1, Math.min(50, Number(giftQty) || 1));
+    let alert = null;
+    for (let i = 0; i < q; i++) alert = await fireGift(room, type, { senderName: "Host" });
+    setGift(q > 1 && alert ? { ...alert, line: `×${q} — ${alert.line}` } : alert);
     setTimeout(() => setGift(null), 4200);
     // "Turn the Table" reverses the overlay for 20s, then flips back on its own
     if (alert && alert.effect === "Turn the Table") {
@@ -270,6 +273,9 @@ export default function HostPage() {
   // COCKPIT (active / resolving / ended)
   const tier = rageTier(room.rage);
   const ranked = players.slice().sort((a, b) => b.gold - a.gold);
+  const scorchedNames = new Set(
+    (events || []).filter((e) => e.kind === "scorch" && e.round === room.round).map((e) => e.payload && e.payload.name)
+  );
   const winner = ranked[0];
 
   return (
@@ -306,7 +312,7 @@ export default function HostPage() {
           <div className="label" style={{ marginBottom: 10 }}>Treasure Hunters</div>
           <div className="players">
             {ranked.map((p, i) => (
-              <div key={p.id} className={`pl ${p.warded ? "warded" : ""} ${p.scorched ? "scorched" : ""}`}>
+              <div key={p.id} className={`pl ${p.warded ? "warded" : ""} ${scorchedNames.has(p.name) ? "scorched" : ""}`}>
                 <div className="av">{p.avatar}</div>
                 <div className="who">
                   <b>{p.name}
@@ -335,7 +341,11 @@ export default function HostPage() {
           </div>
         </div>
         <div className="panel">
-          <div className="label" style={{ color: "var(--amethyst)", marginBottom: 10 }}>🎁 Gift Power-Ups</div>
+          <div className="subbar" style={{ marginBottom: 10 }}>
+            <span className="label" style={{ color: "var(--amethyst)" }}>🎁 Gift Power-Ups</span>
+            <label className="gift-qty">×<input type="number" min="1" max="50" value={giftQty}
+              onChange={(e) => setGiftQty(e.target.value === "" ? "" : Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))} /></label>
+          </div>
           <div className="gift-grid">
             {GIFT_ORDER.map((t) => (
               <button key={t} className="gift-btn" onClick={() => onGift(t)} title={`${GIFT_META[t].coins}◈ · ${GIFT_META[t].blurb}`}>
