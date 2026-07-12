@@ -374,3 +374,11 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* gilded meters */
 .meter,.ragebar{border-color:#5a4326;box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
+
+
+/* painted lair backdrop (UI-free plate) behind the in-game host screen */
+body:has(.host-wrap.cockpit)::before{
+  background:
+    radial-gradient(135% 135% at 50% 40%, transparent 60%, rgba(0,0,0,.42)),
+    url('/lair.jpg') center center / cover no-repeat;
+}
