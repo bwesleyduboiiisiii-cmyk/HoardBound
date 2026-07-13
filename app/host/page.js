@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import {
   createRoom, getOrCreateRoom, stableHostId, getPlayers, getEvents, getMoveCount, addBot, renamePlayer, getAvatarsByNames,
   startRound, resolveRound, fireDirector, fireGift, resetGame, endGame, removePlayer, subscribeRoom, uuid,
-  setHoard, grantGold, getMovedPlayerIds,
+  setHoard, grantGold, getMovedPlayerIds, openGiftWindow, closeGiftWindow,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
 import { ROUNDS, rageTier, fmt, rageStage, GIFT_ORDER, GIFT_META, narrationLine, dragonScorchLine } from "../../lib/game";
@@ -47,6 +47,8 @@ export default function HostPage() {
   const [auto, setAuto] = useState(false);
   const [speedIdx, setSpeedIdx] = useState(1);
   const [timerIdx, setTimerIdx] = useState(0);
+  const [windowIdx, setWindowIdx] = useState(2); // default 20s
+  const [now, setNow] = useState(Date.now());
   const [countdown, setCountdown] = useState(null);
   const roomRef = useRef(null);
   roomRef.current = room;
@@ -60,6 +62,13 @@ export default function HostPage() {
   ];
   const TIMERS = [
     { label: "Off", secs: 0 },
+    { label: "20s", secs: 20 },
+    { label: "30s", secs: 30 },
+    { label: "45s", secs: 45 },
+  ];
+  const WINDOWS = [
+    { label: "Off", secs: 0 },
+    { label: "15s", secs: 15 },
     { label: "20s", secs: 20 },
     { label: "30s", secs: 30 },
     { label: "45s", secs: 45 },
@@ -178,17 +187,24 @@ export default function HostPage() {
     setPlayers((prev) => prev.map((x) => x.id === p.id ? { ...x, gold: Math.max(0, (x.gold || 0) + delta) } : x));
     try { await grantGold(p.id, delta); await refresh(); } catch (e) { setErr(e.message); }
   }
-  async function onStart() { await setHoard(room.id, hoardInput); await startRound(room.id, 1); await refresh(); }
+  async function onStart() { await setHoard(room.id, hoardInput); await closeGiftWindow(room.id); await startRound(room.id, 1); await refresh(); }
   async function onResolve(narrate = false) {
     if (narrate) primeAudio(); // unlock audio during this click so the ElevenLabs clip can play
     setBusy(true);
     try {
       const res = await resolveRound(room);
+      // Open the power-up window for viewers (unless ended or set to Off).
+      const wsecs = WINDOWS[windowIdx].secs;
+      if (wsecs > 0 && !(res && res.ended)) { try { await openGiftWindow(room.id, wsecs); } catch (e) {} }
       await refresh();
       if (narrate && res && res.events && res.events.length) startNarration(res.events, room.round, res.ended);
     } finally { setBusy(false); }
   }
-  async function onNext() { await startRound(room.id, room.round + 1); await refresh(); }
+  async function onNext() { await closeGiftWindow(room.id); await startRound(room.id, room.round + 1); await refresh(); }
+  async function onOpenWindow() {
+    const wsecs = WINDOWS[windowIdx].secs || 20;
+    try { await openGiftWindow(room.id, wsecs); await refresh(); } catch (e) { setErr(e.message); }
+  }
 
   const audioRef = useRef(null);
   const SILENT_WAV = "data:audio/wav;base64,UklGRmQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==";
@@ -313,6 +329,14 @@ export default function HostPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room && room.status, room && room.round, moveCount, players.length]);
 
+  // 1-second clock for the power-up window countdown.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, []);
+  const windowLeft = room && room.gift_window_until
+    ? Math.max(0, Math.ceil((new Date(room.gift_window_until).getTime() - now) / 1000)) : 0;
+
   // Autoplay: keep advancing rounds on a timer until the game ends or the host stops it.
   // The ⏲ timer, when set, decides how long autoplay waits between steps; otherwise use the speed.
   useEffect(() => {
@@ -320,6 +344,8 @@ export default function HostPage() {
     if (room.status === "ended") { setAuto(false); return; }
     if (room.status !== "active" && room.status !== "resolving") return;
     if (narration) return; // wait: let the round narration finish reading before advancing
+    // While resolving, hold for the power-up window so viewers get their full send time.
+    if (room.status === "resolving" && windowLeft > 0) return;
     const autoDelay = TIMERS[timerIdx].secs > 0 ? TIMERS[timerIdx].secs * 1000 : SPEEDS[speedIdx].ms;
     const t = setTimeout(async () => {
       if (stepping.current) return;
@@ -332,7 +358,7 @@ export default function HostPage() {
       } finally { stepping.current = false; }
     }, autoDelay);
     return () => clearTimeout(t);
-  }, [auto, room && room.status, room && room.round, speedIdx, timerIdx, narration]);
+  }, [auto, room && room.status, room && room.round, speedIdx, timerIdx, narration, windowLeft]);
 
   // Round timer: when enabled (and autoplay is off), count down and auto-resolve at 0.
   useEffect(() => {
@@ -512,6 +538,9 @@ export default function HostPage() {
           </div>
         );
       })()}
+      {windowLeft > 0 && (
+        <div className="pw-banner">⚡ POWER-UP WINDOW · {windowLeft}s — send gifts now!</div>
+      )}
       {announce && (
         <div className="announce-toast">📜 {announce}</div>
       )}
@@ -681,6 +710,12 @@ export default function HostPage() {
               </button>
               <button className="btn ghost" onClick={() => { primeAudio(); setVoicePanel(true); }} title="Choose the narration voice">
                 🔊 {voiceMode === "free" ? "Free Voice" : "AI Voice"}
+              </button>
+              <button className="btn ghost" onClick={() => setWindowIdx((i) => (i + 1) % WINDOWS.length)} title="How long the power-up window stays open after each round">
+                ⚡ Window {WINDOWS[windowIdx].label}
+              </button>
+              <button className="btn ghost" onClick={onOpenWindow} title="Open the power-up window right now">
+                ⚡ Open Now
               </button>
             </div>
           )}

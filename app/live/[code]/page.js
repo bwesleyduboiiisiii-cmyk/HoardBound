@@ -33,6 +33,7 @@ export default function LivePage() {
   const router = useRouter();
   const code = String(params.code || "").toUpperCase();
   const [room, setRoom] = useState(null);
+  const [now, setNow] = useState(Date.now());
   const [players, setPlayers] = useState([]);
   const [avatars, setAvatars] = useState({});
   const [events, setEvents] = useState([]);
@@ -62,6 +63,7 @@ export default function LivePage() {
     return () => { unsub && unsub(); clearInterval(poll); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id]);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
 
   async function refresh() {
     const r = roomRef.current; if (!r?.id) return;
@@ -115,9 +117,14 @@ export default function LivePage() {
     return Object.entries(tally).sort((a, b) => b[1] - a[1]).slice(0, 3);
   })();
 
+  const windowLeft = room.gift_window_until ? Math.max(0, Math.ceil((new Date(room.gift_window_until).getTime() - now) / 1000)) : 0;
+
   return (
     <div className={`viewer ${transparent ? "transparent" : ""}`}>
       <button className="navback subtle" onClick={() => router.push("/")}>‹</button>
+      {windowLeft > 0 && (
+        <div className="pw-banner v">⚡ POWER-UP WINDOW · {windowLeft}s — SEND GIFTS!</div>
+      )}
       <div className="v-top">
         <div className="brand">
           <span className="live-pill"><span className="dot" />LIVE</span>

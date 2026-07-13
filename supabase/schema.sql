@@ -91,6 +91,7 @@ end $$;
 -- Gift power-ups: round modifiers (safe to run on existing rooms tables)
 alter table rooms add column if not exists modifiers jsonb not null default '{}'::jsonb;
 alter table rooms add column if not exists spell_player uuid;
+alter table rooms add column if not exists gift_window_until timestamptz;
 
 -- ---------- Season leaderboard (persistent, keyed by hunter name) ----------
 create table if not exists leaders (

@@ -649,3 +649,11 @@ body:has(.host-wrap.cockpit)::before{
   width:34px;height:30px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;line-height:1}
 .badge.b-ready{background:rgba(74,222,128,.16);color:#8ef0b0;border:1px solid rgba(74,222,128,.4)}
 .badge.b-waiting{background:rgba(245,196,81,.14);color:var(--gold);border:1px solid rgba(245,196,81,.4)}
+
+/* power-up window countdown banner */
+.pw-banner{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:80;white-space:nowrap;
+  background:linear-gradient(180deg,#3a2a06,#1c1403);border:1px solid var(--gold);color:#ffe9a8;
+  padding:11px 22px;border-radius:999px;font-family:'Cinzel',serif;font-weight:700;font-size:15px;
+  box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 26px rgba(245,196,81,.5);animation:pwPulse 1s ease-in-out infinite}
+.pw-banner.v{font-size:22px;padding:14px 30px}
+@keyframes pwPulse{0%,100%{box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 20px rgba(245,196,81,.35)}50%{box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 34px rgba(245,196,81,.7)}}

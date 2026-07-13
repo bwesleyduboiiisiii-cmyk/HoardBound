@@ -39,6 +39,7 @@ export default function PlayPage() {
   const router = useRouter();
   const code = String(params.code || "").toUpperCase();
   const [room, setRoom] = useState(null);
+  const [now, setNow] = useState(Date.now());
   const [players, setPlayers] = useState([]);
   const [me, setMe] = useState(null);
   const [name, setName] = useState("");
@@ -66,6 +67,7 @@ export default function PlayPage() {
     if (!a) { router.push("/"); return; }
     setAccount(a); setName(a.username || ""); setAvatarUrl(a.avatarUrl || null);
   }, []);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
 
   useEffect(() => {
     getRoomByCode(code).then((r) => {
@@ -234,6 +236,7 @@ export default function PlayPage() {
   const canMove = room.status === "active" && !myMove;
   const scorchedNames = new Set((events || []).filter((e) => e.kind === "scorch" && e.round === room.round).map((e) => e.payload && e.payload.name));
   const iAmScorched = scorchedNames.has(mine.name);
+  const windowLeft = room.gift_window_until ? Math.max(0, Math.ceil((new Date(room.gift_window_until).getTime() - now) / 1000)) : 0;
   const liveOffers = pactOffers.filter((o) => !denied.includes(o.id) && !(myMove && myMove.action === "pact" && myMove.target_id === o.id));
   let guideTip = "";
   if (room.status === "lobby") guideTip = "We're in! Waiting for the host to begin…";
@@ -261,6 +264,9 @@ export default function PlayPage() {
         <button className="navback" onClick={leave}>‹ Leave game</button>
         <button className="navback" onClick={signOut}>Sign out</button>
       </div>
+      {windowLeft > 0 && (
+        <div className="pw-banner">⚡ POWER-UP WINDOW · {windowLeft}s — send gifts now!</div>
+      )}
       <div className="brand" style={{ textAlign: "center" }}>
         <h1 style={{ fontSize: 26, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
           <Avatar url={av(mine)} emoji={mine.avatar} size={40} />
