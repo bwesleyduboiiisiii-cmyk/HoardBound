@@ -389,7 +389,8 @@ body:has(.host-wrap.cockpit)::before{
   filter:drop-shadow(0 10px 22px rgba(0,0,0,.55));animation:dragFloat 4.5s ease-in-out infinite}
 .dragon-img.attack{filter:drop-shadow(0 0 22px rgba(255,120,40,.6)) drop-shadow(0 10px 22px rgba(0,0,0,.5))}
 @keyframes dragFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-.viewer .dragon-img{width:300px;max-width:90%}
+.viewer .v-dragon-col{width:100%}
+.viewer .dragon-img{width:75%;max-width:75%;height:auto;max-height:66vh}
 .rage-row{display:flex;align-items:center;gap:12px}
 .dragon-mini{width:150px;height:auto;flex-shrink:0;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))}
 @media (orientation:portrait){
