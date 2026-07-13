@@ -1,8 +1,8 @@
 {
   "name": "hoardbound-tiktok-bridge",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "type": "commonjs",
+  "type": "module",
   "scripts": { "start": "node bridge.js" },
-  "dependencies": { "tiktok-live-connector": "^1.1.7", "dotenv": "^16.4.5" }
+  "dependencies": { "tiktok-live-connector": "^2.4.0", "dotenv": "^16.4.5" }
 }
