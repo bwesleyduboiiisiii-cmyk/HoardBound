@@ -404,7 +404,11 @@ body:has(.host-wrap.cockpit)::before{
 .kick:hover{background:rgba(229,83,60,.24);border-color:var(--bad);color:#fff}
 
 /* gift power-ups */
-.gift-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gift-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:min(46vh,360px);overflow-y:auto;overflow-x:hidden;padding-right:6px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;scrollbar-color:var(--gold) transparent}
+.gift-grid::-webkit-scrollbar{width:10px}
+.gift-grid::-webkit-scrollbar-thumb{background:rgba(245,196,81,.6);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+.gift-grid::-webkit-scrollbar-track{background:rgba(245,196,81,.08);border-radius:8px}
 .gift-btn{display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;
   border:1px solid #5a4326;background:linear-gradient(180deg, rgba(245,196,81,.10), rgba(20,14,32,.5));
   color:var(--bone);border-radius:10px;padding:9px 6px;cursor:pointer;
