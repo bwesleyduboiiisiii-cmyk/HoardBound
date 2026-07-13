@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getRoomByCode, getPlayers, getEvents, subscribeRoom, getAvatarsByNames } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
-import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL, rageStage } from "../../../lib/game";
+import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL, rageStage, GIFT_ORDER, GIFT_META, GIFT_TIKTOK } from "../../../lib/game";
 import Avatar from "../../_components/Avatar";
 
 const feedClass = (k) =>
@@ -119,6 +119,10 @@ export default function LivePage() {
 
   const windowLeft = room.gift_window_until ? Math.max(0, Math.ceil((new Date(room.gift_window_until).getTime() - now) / 1000)) : 0;
 
+  // Narrator subtitle: latest meaningful line, plain text, for sound-off viewers.
+  const sigEvents = (events || []).filter((e) => !(e.kind === "move" && ["sneak", "low", "idle"].includes(e.payload?.action)));
+  const subtitleText = sigEvents[0] ? eventText(sigEvents[0]).replace(/<[^>]+>/g, "").trim() : "";
+
   return (
     <div className={`viewer ${transparent ? "transparent" : ""}`}>
       <button className="navback subtle" onClick={() => router.push("/")}>‹</button>
@@ -200,7 +204,22 @@ export default function LivePage() {
           </div>
         )}
         <div className="hint">Players join at <b style={{ color: "var(--ash)" }}>/play/{code}</b></div>
-        <div className="powers">🌹 Rose · 🫰 Finger Heart · 🧸 Hi Bear · 🍩 Doughnut — <span className="k">viewer gifts change the game live</span></div>
+      </div>
+
+      {subtitleText && <div className="v-subtitle">💬 {subtitleText}</div>}
+
+      <div className="v-ticker">
+        <div className="v-ticker-track">
+          {[...GIFT_ORDER, ...GIFT_ORDER].map((k, i) => (
+            <span key={k + i} className={`v-tk ${GIFT_META[k] && ["dragons_breath","claw_swipe","tail_lash","wing_gust","ember_storm","fireball","scorch_earth","dragon_bite","meteor_storm","dragon_flame"].includes(k) ? "atk" : "bls"}`}>
+              <span className="e">{GIFT_META[k].emoji}</span>
+              <b>{GIFT_TIKTOK[k]}</b>
+              <span className="ar">→</span>
+              {GIFT_META[k].power}
+              <i>{GIFT_META[k].coins.toLocaleString()}◈</i>
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className={`flash ${flash ? "go" : ""}`} key={flash} />
