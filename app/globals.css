@@ -661,3 +661,57 @@ body:has(.host-wrap.cockpit)::before{
   box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 26px rgba(245,196,81,.5);animation:pwPulse 1s ease-in-out infinite}
 .pw-banner.v{font-size:22px;padding:14px 30px}
 @keyframes pwPulse{0%,100%{box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 20px rgba(245,196,81,.35)}50%{box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 34px rgba(245,196,81,.7)}}
+
+/* ---- /gifts guide overlay (OBS) ---- */
+.gifts-overlay{min-height:100vh;padding:22px 26px;color:var(--bone);
+  background:radial-gradient(1200px 700px at 50% -10%, rgba(90,50,120,.35), transparent), var(--obsidian, #0b0712);
+  font-family:'Barlow',sans-serif}
+.gifts-overlay.transparent{background:transparent}
+.go-head{text-align:center;margin-bottom:16px}
+.go-head h1{font-family:'Cinzel',serif;font-size:34px;letter-spacing:2px;color:var(--gold);margin:6px 0 2px;
+  text-shadow:0 2px 14px rgba(245,196,81,.35)}
+.go-sub{color:var(--ash,#b9a7d6);font-size:14px}
+.go-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:1180px;margin:0 auto}
+.go-col{display:flex;flex-direction:column;gap:9px}
+.go-coltitle{font-family:'Cinzel',serif;font-weight:700;font-size:16px;text-align:center;padding:6px;border-radius:10px;letter-spacing:1px}
+.go-coltitle.atk{color:#ffb3a0;background:rgba(220,70,40,.14);border:1px solid rgba(220,70,40,.4)}
+.go-coltitle.bls{color:#ffe9a8;background:rgba(245,196,81,.12);border:1px solid rgba(245,196,81,.4)}
+.gcard{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:12px;
+  background:linear-gradient(180deg, rgba(30,20,46,.92), rgba(14,9,22,.92));border:1px solid var(--stroke,#3a2c52)}
+.gcard.atk{border-left:4px solid #e0562a}
+.gcard.bls{border-left:4px solid var(--gold)}
+.gc-emoji{font-size:30px;line-height:1;flex:0 0 auto;width:40px;text-align:center}
+.gc-body{flex:1;min-width:0}
+.gc-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.gc-power{font-family:'Cinzel',serif;font-weight:700;font-size:16px;color:#fff}
+.gc-coins{font-weight:800;color:var(--gold);font-size:13px;white-space:nowrap}
+.gc-send{font-size:13px;color:#cddc6a;margin:1px 0}
+.gc-send b{color:#eaffa0}
+.gc-eff{font-size:12.5px;color:var(--ash,#c7b8e2);line-height:1.25}
+/* auto-scroll (vertical) mode — sized for a TikTok 9:16 overlay */
+.gifts-overlay:has(.go-scroll){display:flex;flex-direction:column;height:100vh;padding:16px 14px;overflow:hidden}
+.gifts-overlay:has(.go-scroll) .go-head{margin-bottom:10px}
+.gifts-overlay:has(.go-scroll) .go-head h1{font-size:26px}
+.go-scroll{flex:1;width:100%;max-width:520px;margin:0 auto;overflow:hidden;position:relative;-webkit-mask-image:linear-gradient(180deg,transparent,#000 6%,#000 94%,transparent)}
+.go-track{display:flex;flex-direction:column;gap:9px;animation:goScroll 40s linear infinite}
+.go-scroll:hover .go-track{animation-play-state:paused}
+@keyframes goScroll{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+
+/* horizontal ticker mode (slim landscape banner, scrollable) */
+.gifts-overlay.horizontal{min-height:0;padding:6px 0 0}
+.gifts-overlay.horizontal .go-head{margin-bottom:4px}
+.gifts-overlay.horizontal .go-head h1{font-size:17px;margin:0}
+.gifts-overlay.horizontal .go-head .go-sub,
+.gifts-overlay.horizontal .go-head .live-pill{display:none}
+.go-hscroll{width:100%;overflow-x:auto;overflow-y:hidden;padding:0;line-height:0;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);
+  scrollbar-width:none;-ms-overflow-style:none}
+.go-hscroll::-webkit-scrollbar{display:none;width:0;height:0}
+.go-htrack{display:flex;flex-direction:row;align-items:stretch;gap:10px;width:max-content;line-height:normal}
+.go-htrack .gcard{width:300px;flex:0 0 auto;padding:6px 10px;gap:9px}
+.go-htrack .gcard .gc-emoji{font-size:22px;width:28px}
+.go-htrack .gcard .gc-power{font-size:14px}
+.go-htrack .gcard .gc-coins{font-size:12px}
+.go-htrack .gcard .gc-send{font-size:11px;margin:0}
+.go-htrack .gcard .gc-eff{font-size:11px;line-height:1.2;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
