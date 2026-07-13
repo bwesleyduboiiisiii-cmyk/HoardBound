@@ -8,7 +8,7 @@ import {
   setHoard, grantGold, getMovedPlayerIds, openGiftWindow, closeGiftWindow, setRoomNarration,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
-import { ROUNDS, rageTier, fmt, rageStage, GIFT_ORDER, GIFT_META, narrationLine, dragonScorchLine } from "../../lib/game";
+import { ROUNDS, rageTier, fmt, rageStage, GIFT_ORDER, GIFT_META, narrationLine, dragonScorchLine, narrationDur, narrationIndexAt } from "../../lib/game";
 import Chronicle from "../_components/Chronicle";
 import Avatar from "../_components/Avatar";
 
@@ -47,12 +47,15 @@ export default function HostPage() {
   const [auto, setAuto] = useState(false);
   const [speedIdx, setSpeedIdx] = useState(1);
   const [timerIdx, setTimerIdx] = useState(0);
-  const [windowIdx, setWindowIdx] = useState(2); // default 20s
+  const [windowIdx, setWindowIdx] = useState(3); // default 60s
   const [now, setNow] = useState(Date.now());
   const [countdown, setCountdown] = useState(null);
   const roomRef = useRef(null);
   roomRef.current = room;
   const stepping = useRef(false);
+  const windowPendingRef = useRef(0); // secs to open the power-up window AFTER narration ends
+  const spokenIdx = useRef(-1);       // last narration line the host has spoken aloud
+  const shownIdx = useRef(-1);        // last narration line reflected into local state
 
   const SPEEDS = [
     { label: "Chill", ms: 9000 },
@@ -68,10 +71,11 @@ export default function HostPage() {
   ];
   const WINDOWS = [
     { label: "Off", secs: 0 },
-    { label: "15s", secs: 15 },
-    { label: "20s", secs: 20 },
     { label: "30s", secs: 30 },
     { label: "45s", secs: 45 },
+    { label: "60s", secs: 60 },
+    { label: "90s", secs: 90 },
+    { label: "120s", secs: 120 },
   ];
   // boot: restore host + room
   useEffect(() => {
@@ -193,11 +197,16 @@ export default function HostPage() {
     setBusy(true);
     try {
       const res = await resolveRound(room);
-      // Open the power-up window for viewers (unless ended or set to Off).
       const wsecs = WINDOWS[windowIdx].secs;
-      if (wsecs > 0 && !(res && res.ended)) { try { await openGiftWindow(room.id, wsecs); } catch (e) {} }
+      const ended = !!(res && res.ended);
       await refresh();
-      if (narrate && res && res.events && res.events.length) startNarration(res.events, room.round, res.ended);
+      if (narrate && res && res.events && res.events.length) {
+        // The power-up window opens only AFTER the narration finishes reading.
+        startNarration(res.events, room.round, ended, ended ? 0 : wsecs);
+      } else if (wsecs > 0 && !ended) {
+        // No narration this round — open immediately.
+        try { await openGiftWindow(room.id, wsecs); } catch (e) {}
+      }
     } finally { setBusy(false); }
   }
   async function onNext() { await closeGiftWindow(room.id); await startRound(room.id, room.round + 1); await refresh(); }
@@ -265,7 +274,7 @@ export default function HostPage() {
     setVoiceWarn(String(reason || "").slice(0, 140));
     setTimeout(() => setVoiceWarn(null), 8000);
   }
-  function startNarration(events, round, ended) {
+  function startNarration(events, round, ended, windowSecs = 0) {
     const lines = [{ text: `Round ${round}. Here is how it unfolded…`, who: "narrator" }];
     events.forEach((e) => {
       const text = narrationLine(e);
@@ -288,38 +297,60 @@ export default function HostPage() {
       who: "narrator",
     });
     try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
-    setNarration({ lines, i: 0 });
+    // One immutable timeline both screens read. startedAt has a small lead so the
+    // single room write can reach the overlay before the first line is due.
+    const durs = lines.map((l) => narrationDur(l.text));
+    const startedAt = Date.now() + 400;
+    const payload = { lines, durs, startedAt, total: lines.length, i: 0 };
+    windowPendingRef.current = ended ? 0 : (windowSecs || 0);
+    spokenIdx.current = -1;
+    shownIdx.current = -1;
+    setNarration({ ...payload, ended });
+    // Mirror the whole sequence to the room ONCE — the overlay derives every
+    // line from the same startedAt anchor, so it stays in lockstep.
+    if (room?.id) setRoomNarration(room.id, payload);
+  }
+  function finishNarration() {
+    const wsecs = windowPendingRef.current;
+    windowPendingRef.current = 0;
+    const rid = roomRef.current?.id;
+    if (rid) {
+      setRoomNarration(rid, null);
+      if (wsecs > 0) openGiftWindow(rid, wsecs).then(refresh).catch(() => {});
+    }
+    setNarration(null);
   }
   function endNarration() {
     stopAudio();
-    setNarration(null);
+    finishNarration(); // Skip = treat narration as done: clear + open the window now
   }
+  // Timeline clock: advance the caption off startedAt, speak each new line, and
+  // when the sequence completes, open the power-up window. Set up once per run.
   useEffect(() => {
-    if (!narration) return;
-    if (narration.i >= narration.lines.length) {
-      const t = setTimeout(() => setNarration(null), 1500);
-      return () => clearTimeout(t);
-    }
-    let done = false;
-    const advance = () => { if (done) return; done = true; setNarration((n) => (n ? { ...n, i: n.i + 1 } : n)); };
-    const cur = narration.lines[narration.i];
-    speak(cur.text, cur.who, advance);
-    const safety = setTimeout(advance, 9000); // never get stuck if audio/speech never signals end
-    return () => clearTimeout(safety);
+    if (!narration || narration.startedAt == null) { spokenIdx.current = -1; shownIdx.current = -1; return; }
+    const nar = narration; // lines/durs/startedAt/total are immutable for this run
+    let closed = false;
+    const tick = () => {
+      const idx = narrationIndexAt(nar, Date.now());
+      if (idx >= nar.total) {
+        if (closed) return; closed = true;
+        clearInterval(iv);
+        stopAudio();
+        finishNarration();
+        return;
+      }
+      if (idx !== shownIdx.current) { shownIdx.current = idx; setNarration((n) => (n ? { ...n, i: idx } : n)); }
+      if (idx !== spokenIdx.current) {
+        spokenIdx.current = idx;
+        const cur = nar.lines[idx];
+        if (cur) speak(cur.text, cur.who, () => {});
+      }
+    };
+    const iv = setInterval(tick, 200);
+    tick();
+    return () => clearInterval(iv);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [narration && narration.i]);
-
-  // Mirror the current narration line to the room so the LIVE overlay shows it too.
-  useEffect(() => {
-    if (!room?.id) return;
-    let payload = null;
-    if (narration && narration.i < narration.lines.length) {
-      const cur = narration.lines[Math.min(narration.i, narration.lines.length - 1)];
-      if (cur) payload = { text: cur.text, who: cur.who, i: narration.i, total: narration.lines.length };
-    }
-    setRoomNarration(room.id, payload);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [narration && narration.i, narration, room && room.id]);
+  }, [narration && narration.startedAt]);
 
   // When every human has submitted their move, the narrator calls it out (once per round).
   useEffect(() => {

@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getRoomByCode, getPlayers, getEvents, subscribeRoom, getAvatarsByNames, getChats } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
-import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL, rageStage, GIFT_ORDER, GIFT_META, GIFT_TIKTOK } from "../../../lib/game";
+import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL, rageStage, GIFT_ORDER, GIFT_META, GIFT_TIKTOK, narrationIndexAt } from "../../../lib/game";
 import Avatar from "../../_components/Avatar";
 
 const feedClass = (k) =>
@@ -65,7 +65,19 @@ export default function LivePage() {
     return () => { unsub && unsub(); clearInterval(poll); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id]);
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(t); }, []);
+
+  // Fast, lightweight room-only poll so the narration timeline + power-up window
+  // land on the overlay promptly even if realtime coalesces or drops.
+  useEffect(() => {
+    if (!room?.id) return;
+    let alive = true;
+    const t = setInterval(async () => {
+      const { data } = await supabase.from("rooms").select("*").eq("id", room.id).maybeSingle();
+      if (alive && data) setRoom(data);
+    }, 700);
+    return () => { alive = false; clearInterval(t); };
+  }, [room?.id]);
 
   // Poll live TikTok chat for the bottom ticker.
   useEffect(() => {
@@ -134,8 +146,20 @@ export default function LivePage() {
   // Narrator subtitle: latest meaningful line, plain text, for sound-off viewers.
   const sigEvents = (events || []).filter((e) => !(e.kind === "move" && ["sneak", "low", "idle"].includes(e.payload?.action)));
   const subtitleText = sigEvents[0] ? eventText(sigEvents[0]).replace(/<[^>]+>/g, "").trim() : "";
-  // narr comes straight from the host's mirror (rooms.narration) — always in lockstep.
-  const narr = room && room.narration && room.narration.text ? room.narration : null;
+  // Narration comes straight from the host's single mirror (rooms.narration).
+  // New payloads carry the whole timeline (lines/durs/startedAt) so the overlay
+  // derives the exact same current line as the host from the shared clock.
+  let narr = null;
+  const np = room && room.narration ? room.narration : null;
+  if (np && Array.isArray(np.lines) && np.lines.length) {
+    const idx = narrationIndexAt(np, now);
+    if (idx < np.lines.length) {
+      const cur = np.lines[idx];
+      if (cur) narr = { text: cur.text, who: cur.who, i: idx, total: np.total || np.lines.length };
+    }
+  } else if (np && np.text) {
+    narr = np; // legacy single-line payload — show as-is
+  }
 
   return (
     <div className={`viewer ${transparent ? "transparent" : ""}`}>
