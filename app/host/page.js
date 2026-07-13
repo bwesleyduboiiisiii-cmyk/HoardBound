@@ -191,7 +191,7 @@ export default function HostPage() {
     setPlayers((prev) => prev.map((x) => x.id === p.id ? { ...x, gold: Math.max(0, (x.gold || 0) + delta) } : x));
     try { await grantGold(p.id, delta); await refresh(); } catch (e) { setErr(e.message); }
   }
-  async function onStart() { await setHoard(room.id, hoardInput); await closeGiftWindow(room.id); await startRound(room.id, 1); await refresh(); }
+  async function onStart() { await setRoomNarration(room.id, null); await setHoard(room.id, hoardInput); await closeGiftWindow(room.id); await startRound(room.id, 1); await refresh(); }
   async function onResolve(narrate = false) {
     if (narrate) primeAudio(); // unlock audio during this click so the ElevenLabs clip can play
     setBusy(true);
@@ -209,7 +209,7 @@ export default function HostPage() {
       }
     } finally { setBusy(false); }
   }
-  async function onNext() { await closeGiftWindow(room.id); await startRound(room.id, room.round + 1); await refresh(); }
+  async function onNext() { await setRoomNarration(room.id, null); await closeGiftWindow(room.id); await startRound(room.id, room.round + 1); await refresh(); }
   async function onOpenWindow() {
     const wsecs = WINDOWS[windowIdx].secs || 20;
     try { await openGiftWindow(room.id, wsecs); await refresh(); } catch (e) { setErr(e.message); }
@@ -314,15 +314,22 @@ export default function HostPage() {
     const wsecs = windowPendingRef.current;
     windowPendingRef.current = 0;
     const rid = roomRef.current?.id;
-    if (rid) {
-      setRoomNarration(rid, null);
-      if (wsecs > 0) openGiftWindow(rid, wsecs).then(refresh).catch(() => {});
-    }
+    // Deliberately DON'T null rooms.narration here. The overlay hides it on its
+    // own once the timeline elapses, so leaving the payload in place means a
+    // dropped realtime event can't wipe out a narration the overlay never saw.
+    // It's cleared when the next round starts (onNext / onStart).
+    if (rid && wsecs > 0) openGiftWindow(rid, wsecs).then(refresh).catch(() => {});
     setNarration(null);
   }
   function endNarration() {
     stopAudio();
-    finishNarration(); // Skip = treat narration as done: clear + open the window now
+    // Skip = end everywhere now: write an already-expired anchor so the overlay's
+    // timeline reads as complete and it hides too (self-heals even if this drops).
+    const rid = roomRef.current?.id;
+    if (rid && narration && narration.lines) {
+      try { setRoomNarration(rid, { ...narration, startedAt: 0, i: narration.total }); } catch (e) {}
+    }
+    finishNarration();
   }
   // Timeline clock: advance the caption off startedAt, speak each new line, and
   // when the sequence completes, open the power-up window. Set up once per run.
@@ -336,7 +343,7 @@ export default function HostPage() {
         if (closed) return; closed = true;
         clearInterval(iv);
         stopAudio();
-        finishNarration();
+        finishNarration(); // opens the window; leaves the payload for the overlay to expire
         return;
       }
       if (idx !== shownIdx.current) { shownIdx.current = idx; setNarration((n) => (n ? { ...n, i: idx } : n)); }
