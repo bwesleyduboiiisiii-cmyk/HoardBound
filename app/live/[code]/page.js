@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getRoomByCode, getPlayers, getEvents, subscribeRoom, getAvatarsByNames, getChats } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
-import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL, rageStage, GIFT_ORDER, GIFT_META, GIFT_TIKTOK, narrationLine, dragonScorchLine } from "../../../lib/game";
+import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL, rageStage, GIFT_ORDER, GIFT_META, GIFT_TIKTOK } from "../../../lib/game";
 import Avatar from "../../_components/Avatar";
 
 const feedClass = (k) =>
@@ -43,10 +43,7 @@ export default function LivePage() {
   const [transparent, setTransparent] = useState(false);
   const roomRef = useRef(null); roomRef.current = room;
   const lastEvent = useRef(null);
-  // Self-driven narration (same lines as the host, no DB dependency)
-  const [narr, setNarr] = useState(null);
-  const seqRef = useRef([]); const idxRef = useRef(0); const narrTimer = useRef(null);
-  const lastNarratedRound = useRef(-1);
+  // Narration mirrors the host — single source of truth via rooms.narration.
 
   const rowRefs = useRef({});
   const prevPos = useRef({});
@@ -70,57 +67,6 @@ export default function LivePage() {
   }, [room?.id]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
 
-  // Build the same narration lines the host does, from this round's events.
-  function buildNarration(evs, round, ended) {
-    const lines = [{ text: `Round ${round}. Here is how it unfolded…`, who: "narrator" }];
-    evs.forEach((e) => {
-      const text = narrationLine(e);
-      if (!text) return;
-      if (e.kind === "awaken") {
-        const hasV = e.payload && e.payload.victims && e.payload.victims.length;
-        lines.push({ text: hasV ? "You dared to touch my hoard?! Then BURN!" : "I stir… tread carefully, little thieves.", who: "dragon" });
-        lines.push({ text, who: "narrator" });
-      } else if (e.kind === "scorch") {
-        lines.push({ text: dragonScorchLine(e.payload && e.payload.name, e.payload && e.payload.amount), who: "dragon" });
-      } else lines.push({ text, who: "narrator" });
-    });
-    lines.push({
-      text: ended ? "And that is the final round. The hoard is claimed — what a hunt!"
-        : `That wraps round ${round}. Send your power-ups now, hunters — round ${round + 1} begins in a moment…`,
-      who: "narrator",
-    });
-    return lines;
-  }
-  function clearNarr() { if (narrTimer.current) { clearTimeout(narrTimer.current); narrTimer.current = null; } }
-  function playNarration(lines) {
-    clearNarr();
-    if (!lines || !lines.length) return;
-    seqRef.current = lines; idxRef.current = 0; setNarr(lines[0]);
-    const step = () => {
-      const cur = seqRef.current[idxRef.current];
-      const dur = Math.max(2600, Math.min(7000, (cur?.text?.length || 40) * 65));
-      narrTimer.current = setTimeout(() => {
-        idxRef.current += 1;
-        if (idxRef.current >= seqRef.current.length) { setNarr(null); return; }
-        setNarr(seqRef.current[idxRef.current]); step();
-      }, dur);
-    };
-    step();
-  }
-  useEffect(() => () => clearNarr(), []);
-  // Trigger narration when a round resolves (once per round), driven purely by events.
-  useEffect(() => {
-    if (!room) return;
-    if (room.status !== "resolving" && room.status !== "ended") return;
-    if (lastNarratedRound.current === room.round) return;
-    const evs = (events || [])
-      .filter((e) => e.round === room.round && !(e.kind === "move" && ["sneak", "low", "idle"].includes(e.payload?.action)))
-      .slice().sort((a, b) => a.id - b.id);
-    if (!evs.length) return; // wait until this round's events have loaded
-    lastNarratedRound.current = room.round;
-    playNarration(buildNarration(evs, room.round, room.status === "ended"));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room && room.status, room && room.round, events]);
   // Poll live TikTok chat for the bottom ticker.
   useEffect(() => {
     if (!room?.id) return;
@@ -188,7 +134,8 @@ export default function LivePage() {
   // Narrator subtitle: latest meaningful line, plain text, for sound-off viewers.
   const sigEvents = (events || []).filter((e) => !(e.kind === "move" && ["sneak", "low", "idle"].includes(e.payload?.action)));
   const subtitleText = sigEvents[0] ? eventText(sigEvents[0]).replace(/<[^>]+>/g, "").trim() : "";
-  // narr is self-driven state (see narration effect above)
+  // narr comes straight from the host's mirror (rooms.narration) — always in lockstep.
+  const narr = room && room.narration && room.narration.text ? room.narration : null;
 
   return (
     <div className={`viewer ${transparent ? "transparent" : ""}`}>
@@ -277,6 +224,9 @@ export default function LivePage() {
         <div className={`v-narration ${narr.who === "dragon" ? "dragon" : ""}`} key={narr.text}>
           <div className="vn-kicker">{narr.who === "dragon" ? "🐉 The Dragon Speaks" : "📜 The Chronicle Speaks"}</div>
           <div className="vn-text">{narr.text}</div>
+          {typeof narr.total === "number" && (
+            <div className="vn-step">{Math.min((narr.i ?? 0) + 1, narr.total)} / {narr.total}</div>
+          )}
         </div>
       ) : subtitleText ? (
         <div className="v-subtitle">💬 {subtitleText}</div>

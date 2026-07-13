@@ -312,8 +312,12 @@ export default function HostPage() {
   // Mirror the current narration line to the room so the LIVE overlay shows it too.
   useEffect(() => {
     if (!room?.id) return;
-    const cur = narration ? narration.lines[Math.min(narration.i, narration.lines.length - 1)] : null;
-    setRoomNarration(room.id, cur && narration.i < narration.lines.length ? cur : null);
+    let payload = null;
+    if (narration && narration.i < narration.lines.length) {
+      const cur = narration.lines[Math.min(narration.i, narration.lines.length - 1)];
+      if (cur) payload = { text: cur.text, who: cur.who, i: narration.i, total: narration.lines.length };
+    }
+    setRoomNarration(room.id, payload);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [narration && narration.i, narration, room && room.id]);
 
