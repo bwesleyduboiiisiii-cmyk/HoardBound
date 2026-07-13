@@ -731,3 +731,30 @@ body:has(.host-wrap.cockpit)::before{
 .v-tk i{color:var(--gold);font-style:normal;font-weight:700;font-size:12px}
 .v-tk.atk b{color:#ffb3a0}
 @keyframes vtick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* live overlay: narration card (synced from host) */
+.v-narration{margin:8px auto 0;max-width:1180px;text-align:center;border-radius:14px;padding:12px 22px;
+  background:linear-gradient(180deg, rgba(40,28,60,.92), rgba(14,9,22,.94));border:1px solid var(--gold);
+  box-shadow:0 12px 40px rgba(0,0,0,.55),0 0 24px rgba(245,196,81,.25);animation:vnPop .35s cubic-bezier(.2,.9,.3,1.2)}
+.v-narration.dragon{background:linear-gradient(180deg, rgba(70,24,12,.95), rgba(30,8,6,.96));border-color:#e0562a;
+  box-shadow:0 12px 40px rgba(0,0,0,.6),0 0 30px rgba(224,86,42,.5)}
+.vn-kicker{font-family:'Cinzel',serif;font-weight:700;letter-spacing:.12em;font-size:13px;color:var(--gold);margin-bottom:4px}
+.v-narration.dragon .vn-kicker{color:#ffb59a}
+.vn-text{font-family:'Cinzel',serif;font-size:clamp(18px,2vw,26px);color:#fff;line-height:1.25}
+@keyframes vnPop{from{transform:translateY(10px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+
+/* hoard in the top-right corner of the dragon box */
+.v-stage{position:relative}
+.v-hoard-corner{position:absolute;top:14px;right:18px;text-align:right;z-index:3;line-height:1.05}
+.v-hoard-corner .htop{font-family:'Cinzel',serif;letter-spacing:.14em;color:var(--ash);font-size:11px;text-transform:uppercase}
+.v-hoard-corner .hamt{font-family:'Cinzel',serif;font-weight:900;font-size:clamp(22px,2.4vw,38px);color:var(--gold);text-shadow:0 3px 18px rgba(245,196,81,.35)}
+
+/* live TikTok chat ticker (bottom) */
+.v-chat{margin-top:8px;width:100%;overflow:hidden;border-top:1px solid rgba(245,196,81,.25);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent)}
+.v-chat-track{display:flex;gap:22px;width:max-content;padding:8px 0;animation:vtick 40s linear infinite}
+.v-chat.paused .v-chat-track{animation:none}
+.v-chat-msg{display:inline-flex;align-items:baseline;gap:7px;font-family:'Barlow';font-size:15px;white-space:nowrap;color:#e9ddc4}
+.v-chat-msg .u{color:#7fd1ff;font-weight:700}
+.v-chat-msg .u::after{content:":"}
+.v-chat-empty{display:flex;justify-content:center;padding:9px;color:var(--stone);font-family:'Barlow';font-size:14px}

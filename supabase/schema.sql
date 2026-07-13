@@ -92,6 +92,7 @@ end $$;
 alter table rooms add column if not exists modifiers jsonb not null default '{}'::jsonb;
 alter table rooms add column if not exists spell_player uuid;
 alter table rooms add column if not exists gift_window_until timestamptz;
+alter table rooms add column if not exists narration jsonb;
 
 -- ---------- Season leaderboard (persistent, keyed by hunter name) ----------
 create table if not exists leaders (
@@ -123,5 +124,21 @@ alter table accounts enable row level security;
 do $$ begin
   if not exists (select 1 from pg_policies where policyname = 'dev_all_accounts') then
     create policy dev_all_accounts on accounts for all using (true) with check (true);
+  end if;
+end $$;
+
+-- ---------- Live TikTok chat (mirrored by the bridge for the overlay ticker) ----------
+create table if not exists chats (
+  id         bigserial primary key,
+  room_id    uuid references rooms(id) on delete cascade,
+  name       text,
+  text       text,
+  created_at timestamptz not null default now()
+);
+create index if not exists chats_room_idx on chats (room_id, id desc);
+alter table chats enable row level security;
+do $$ begin
+  if not exists (select 1 from pg_policies where policyname = 'dev_all_chats') then
+    create policy dev_all_chats on chats for all using (true) with check (true);
   end if;
 end $$;

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getRoomByCode, getPlayers, getEvents, subscribeRoom, getAvatarsByNames } from "../../../lib/roomApi";
+import { getRoomByCode, getPlayers, getEvents, subscribeRoom, getAvatarsByNames, getChats } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL, rageStage, GIFT_ORDER, GIFT_META, GIFT_TIKTOK } from "../../../lib/game";
 import Avatar from "../../_components/Avatar";
@@ -37,6 +37,7 @@ export default function LivePage() {
   const [players, setPlayers] = useState([]);
   const [avatars, setAvatars] = useState({});
   const [events, setEvents] = useState([]);
+  const [chats, setChats] = useState([]);
   const [banner, setBanner] = useState(null);
   const [flash, setFlash] = useState(0);
   const [transparent, setTransparent] = useState(false);
@@ -64,6 +65,15 @@ export default function LivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
+  // Poll live TikTok chat for the bottom ticker.
+  useEffect(() => {
+    if (!room?.id) return;
+    let alive = true;
+    const load = async () => { try { const c = await getChats(room.id, 30); if (alive) setChats(c); } catch (e) {} };
+    load();
+    const t = setInterval(load, 2500);
+    return () => { alive = false; clearInterval(t); };
+  }, [room?.id]);
 
   async function refresh() {
     const r = roomRef.current; if (!r?.id) return;
@@ -122,6 +132,7 @@ export default function LivePage() {
   // Narrator subtitle: latest meaningful line, plain text, for sound-off viewers.
   const sigEvents = (events || []).filter((e) => !(e.kind === "move" && ["sneak", "low", "idle"].includes(e.payload?.action)));
   const subtitleText = sigEvents[0] ? eventText(sigEvents[0]).replace(/<[^>]+>/g, "").trim() : "";
+  const narr = room.narration && room.narration.text ? room.narration : null;
 
   return (
     <div className={`viewer ${transparent ? "transparent" : ""}`}>
@@ -169,14 +180,14 @@ export default function LivePage() {
 
         {/* dragon */}
         <div className="card v-stage">
+          <div className="v-hoard-corner">
+            <div className="htop">The Hoard</div>
+            <div className="hamt">{fmt(room.hoard)} ◈</div>
+          </div>
           <div className="v-stage-main">
             <div className="v-dragon-col">
               <img className={`dragon-img ${rageStage(room.rage)}`} src={`/dragon-${rageStage(room.rage)}.png`} alt="dragon" />
               <div className="tier" style={{ color: tier.c }}>{tier.n}</div>
-            </div>
-            <div className="v-hoard-col">
-              <div className="htop">The Hoard</div>
-              <div className="hamt">{fmt(room.hoard)} ◈</div>
             </div>
           </div>
           <div className="ragebar"><span style={{ width: Math.min(100, room.rage) + "%" }} /></div>
@@ -206,20 +217,25 @@ export default function LivePage() {
         <div className="hint">Players join at <b style={{ color: "var(--ash)" }}>/play/{code}</b></div>
       </div>
 
-      {subtitleText && <div className="v-subtitle">💬 {subtitleText}</div>}
-
-      <div className="v-ticker">
-        <div className="v-ticker-track">
-          {[...GIFT_ORDER, ...GIFT_ORDER].map((k, i) => (
-            <span key={k + i} className={`v-tk ${GIFT_META[k] && ["dragons_breath","claw_swipe","tail_lash","wing_gust","ember_storm","fireball","scorch_earth","dragon_bite","meteor_storm","dragon_flame"].includes(k) ? "atk" : "bls"}`}>
-              <span className="e">{GIFT_META[k].emoji}</span>
-              <b>{GIFT_TIKTOK[k]}</b>
-              <span className="ar">→</span>
-              {GIFT_META[k].power}
-              <i>{GIFT_META[k].coins.toLocaleString()}◈</i>
-            </span>
-          ))}
+      {narr ? (
+        <div className={`v-narration ${narr.who === "dragon" ? "dragon" : ""}`} key={narr.text}>
+          <div className="vn-kicker">{narr.who === "dragon" ? "🐉 The Dragon Speaks" : "📜 The Chronicle Speaks"}</div>
+          <div className="vn-text">{narr.text}</div>
         </div>
+      ) : subtitleText ? (
+        <div className="v-subtitle">💬 {subtitleText}</div>
+      ) : null}
+
+      <div className={`v-chat ${chats.length < 6 ? "paused" : ""}`}>
+        {chats.length === 0 ? (
+          <div className="v-chat-empty">💬 Live chat will appear here…</div>
+        ) : (
+          <div className="v-chat-track">
+            {[...chats, ...(chats.length >= 6 ? chats : [])].map((c, i) => (
+              <span key={c.id + "-" + i} className="v-chat-msg"><span className="u">{c.name}</span>{c.text}</span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className={`flash ${flash ? "go" : ""}`} key={flash} />

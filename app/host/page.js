@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import {
   createRoom, getOrCreateRoom, stableHostId, getPlayers, getEvents, getMoveCount, addBot, renamePlayer, getAvatarsByNames,
   startRound, resolveRound, fireDirector, fireGift, resetGame, endGame, removePlayer, subscribeRoom, uuid,
-  setHoard, grantGold, getMovedPlayerIds, openGiftWindow, closeGiftWindow,
+  setHoard, grantGold, getMovedPlayerIds, openGiftWindow, closeGiftWindow, setRoomNarration,
 } from "../../lib/roomApi";
 import { supabase, hasSupabase } from "../../lib/supabaseClient";
 import { ROUNDS, rageTier, fmt, rageStage, GIFT_ORDER, GIFT_META, narrationLine, dragonScorchLine } from "../../lib/game";
@@ -308,6 +308,14 @@ export default function HostPage() {
     return () => clearTimeout(safety);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [narration && narration.i]);
+
+  // Mirror the current narration line to the room so the LIVE overlay shows it too.
+  useEffect(() => {
+    if (!room?.id) return;
+    const cur = narration ? narration.lines[Math.min(narration.i, narration.lines.length - 1)] : null;
+    setRoomNarration(room.id, cur && narration.i < narration.lines.length ? cur : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narration && narration.i, narration, room && room.id]);
 
   // When every human has submitted their move, the narrator calls it out (once per round).
   useEffect(() => {

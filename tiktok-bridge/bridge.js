@@ -46,6 +46,16 @@ async function post(payload) {
   } catch (e) { console.error("post failed:", e.message); }
 }
 
+async function postChat(user, text) {
+  try {
+    await fetch(`${APP}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomCode: ROOM, secret: SECRET, user: String(user).slice(0, 24), text: String(text).slice(0, 160) }),
+    });
+  } catch (e) {}
+}
+
 const conn = new TikTokLiveConnection(USER, SIGN ? { signApiKey: SIGN } : {});
 
 conn.connect()
@@ -57,10 +67,23 @@ conn.connect()
     process.exit(1);
   });
 
+// De-dupe: TikTok can emit the same gift event more than once.
+const seenGifts = new Map();
+function isDuplicate(id) {
+  if (!id) return false;
+  const now = Date.now();
+  for (const [k, t] of seenGifts) if (now - t > 60000) seenGifts.delete(k);
+  if (seenGifts.has(id)) return true;
+  seenGifts.set(id, now);
+  return false;
+}
+
 conn.on(EV_GIFT, (d) => {
-  // Streakable gifts (giftType 1) fire many events; only count when the streak ends.
-  const gType = (d.giftDetails && d.giftDetails.giftType != null) ? d.giftDetails.giftType : d.giftType;
-  if (gType === 1 && d.repeatEnd === false) return;
+  // Streak gifts fire many events as the count climbs; only act on the FINAL one.
+  // repeatEnd === false means "still streaking" — skip it (works whether or not giftType is set).
+  if (d.repeatEnd === false) return;
+  const msgId = d.msgId || d.messageId || (d.common && d.common.msgId) || d.id;
+  if (isDuplicate(msgId)) return;
   const name = (d.giftDetails && d.giftDetails.giftName) || d.giftName || (d.gift && d.gift.name);
   if (!name) return;
   const mapped = GIFTS[name];
@@ -69,6 +92,15 @@ conn.on(EV_GIFT, (d) => {
   // Mapped gifts fire their specific power; every other gift is forwarded too so the app's
   // generic fallback fires a small effect. Send the raw name for unmapped gifts.
   post({ giftType: mapped || name, quantity, sender });
+});
+
+// Forward live chat comments to the overlay ticker.
+const EV_CHAT = (WebcastEvent && WebcastEvent.CHAT) || "chat";
+conn.on(EV_CHAT, (d) => {
+  const user = (d.user && (d.user.nickname || d.user.uniqueId)) || d.nickname || d.uniqueId || "viewer";
+  const comment = d.comment || d.content || "";
+  if (!comment) return;
+  postChat(user, comment);
 });
 
 conn.on(EV_DISC, () => console.log("Disconnected from TikTok LIVE."));
