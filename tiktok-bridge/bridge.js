@@ -15,7 +15,15 @@ const SIGN   = process.env.SIGN_API_KEY || process.env.EULER_API_KEY || ""; // o
 const ROOM   = (process.argv[2] || process.env.ROOM_CODE || "").toUpperCase();
 
 // TikTok gift name -> our gift type. Add rows if you enable more gifts later.
-const GIFTS = { "Rose": "rose", "Finger Heart": "finger_heart", "Hi Bear": "hi_bear", "Doughnut": "doughnut" };
+const GIFTS = {
+  "Treasure Box": "treasure_box", "Lightning Bolt": "lightning_bolt", "A Shard of Hope": "shard_hope",
+  "Chili": "dragons_breath", "Spinning Soccer": "claw_swipe", "Gold Boxing Gloves": "tail_lash",
+  "Rosa": "wing_gust", "Smores": "ember_storm", "Confetti": "fireball", "Panther Paws": "scorch_earth",
+  "Pirate's Treasure": "pirates_treasure", "Money Gun": "money_gun", "Shell of a Warrior": "warrior_shell",
+  "Sound Spell": "sound_spell", "Gold Mine": "gold_mine", "Lover's Lock": "lovers_lock",
+  "Baby Dragon": "dragon_bite", "Meteor Shower": "meteor_storm", "Dragon Flame": "dragon_flame",
+  "TikTok Universe": "tiktok_universe",
+};
 
 const EV_GIFT = (WebcastEvent && WebcastEvent.GIFT) || "gift";
 const EV_END  = (WebcastEvent && WebcastEvent.STREAM_END) || "streamEnd";
@@ -54,11 +62,13 @@ conn.on(EV_GIFT, (d) => {
   const gType = (d.giftDetails && d.giftDetails.giftType != null) ? d.giftDetails.giftType : d.giftType;
   if (gType === 1 && d.repeatEnd === false) return;
   const name = (d.giftDetails && d.giftDetails.giftName) || d.giftName || (d.gift && d.gift.name);
+  if (!name) return;
   const mapped = GIFTS[name];
-  if (!mapped) return; // ignore gifts we don't map
   const quantity = d.repeatCount || 1;
   const sender = (d.user && (d.user.uniqueId || d.user.nickname)) || d.uniqueId || d.nickname || "A viewer";
-  post({ giftType: mapped, quantity, sender });
+  // Mapped gifts fire their specific power; every other gift is forwarded too so the app's
+  // generic fallback fires a small effect. Send the raw name for unmapped gifts.
+  post({ giftType: mapped || name, quantity, sender });
 });
 
 conn.on(EV_DISC, () => console.log("Disconnected from TikTok LIVE."));
