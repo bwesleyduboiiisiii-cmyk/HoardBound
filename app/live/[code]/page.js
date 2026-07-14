@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getRoomByCode, getPlayers, getEvents, subscribeRoom, getAvatarsByNames, getChats } from "../../../lib/roomApi";
+import { getRoomByCode, getPlayers, getEvents, subscribeRoom, getAvatarsByNames, getChats, getMovedPlayerIds } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, eventText, ROUNDS, ACT_LABEL, rageStage, GIFT_ORDER, GIFT_META, GIFT_TIKTOK, narrationIndexAt } from "../../../lib/game";
 import Avatar from "../../_components/Avatar";
+import SeasonLeaders from "../../_components/SeasonLeaders";
 
 const feedClass = (k) =>
   k === "scorch" || k === "awaken" || k === "oath" || k === "betray_fail" ? "fire"
@@ -35,6 +36,7 @@ export default function LivePage() {
   const [room, setRoom] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [players, setPlayers] = useState([]);
+  const [movedIds, setMovedIds] = useState([]);
   const [avatars, setAvatars] = useState({});
   const [events, setEvents] = useState([]);
   const [chats, setChats] = useState([]);
@@ -95,6 +97,8 @@ export default function LivePage() {
     if (fresh) setRoom(fresh);
     const ps = await getPlayers(r.id);
     setPlayers(ps);
+    if (fresh?.status === "active") { try { setMovedIds(await getMovedPlayerIds(r.id, fresh.round)); } catch (e) {} }
+    else setMovedIds([]);
     try { const hn = ps.filter((p) => !p.is_bot).map((p) => p.name); if (hn.length) setAvatars(await getAvatarsByNames(hn)); } catch (e) {}
     const evs = await getEvents(r.id, 24);
     setEvents(evs);
@@ -197,12 +201,18 @@ export default function LivePage() {
                     {scorchedNames.has(p.name) && <span className="badge b-scorch">🔥 Scorched</span>}
                     {p.warded && <span className="badge b-ward">Warded</span>}
                     {p.pact_with && <span className="badge b-pact">Pact</span>}
+                    {room.status === "active" && !p.is_bot && (
+                      movedIds.includes(p.id)
+                        ? <span className="badge b-ready">✓ ready</span>
+                        : <span className="badge b-waiting">… choosing</span>
+                    )}
                   </div>
                 </div>
                 <div className="gg"><div className="g">{fmt(p.gold)} ◈</div><div className="trust">Trust {p.trust}</div></div>
               </div>
             ))}
           </div>
+          <div className="v-slead"><SeasonLeaders limit={5} /></div>
         </div>
 
         {/* dragon */}

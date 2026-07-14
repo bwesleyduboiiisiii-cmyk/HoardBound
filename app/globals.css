@@ -764,3 +764,23 @@ body:has(.host-wrap.cockpit)::before{
 .v-chat-msg .u{color:#7fd1ff;font-weight:800}
 .v-chat-msg .u::after{content:":"}
 .v-chat-empty{display:flex;justify-content:center;padding:11px;color:var(--stone);font-family:'Barlow';font-size:18px}
+
+/* ---- compact Season Leaders (host cockpit + live overlay) ---- */
+.slead{display:flex;flex-direction:column;gap:5px}
+.slead-head{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:2px}
+.slead-empty{color:var(--stone);font-size:12px;padding:2px}
+.slead-row{display:grid;grid-template-columns:26px 1fr auto auto;align-items:center;gap:8px;
+  padding:5px 9px;border-radius:8px;background:rgba(20,14,30,.5);border:1px solid #241a33}
+.slead-row.top{border-color:var(--gold);background:rgba(245,196,81,.08)}
+.sl-rank{text-align:center;font-family:'Cinzel',serif;color:var(--gold);font-size:13px}
+.sl-name{font-weight:700;color:var(--bone);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.sl-wins{color:#c4b5fd;font-size:11px;font-weight:800}
+.sl-gold{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums;font-size:12px}
+/* overlay placement: sits under the standings board */
+.v-slead{margin-top:10px;border-top:1px solid rgba(245,196,81,.18);padding-top:9px}
+.v-slead .slead-row{font-size:13px}
+
+/* overlay standings card: board scrolls, season leaders pinned below */
+.v-main > .card:first-child{display:flex;flex-direction:column;min-height:0}
+.v-main > .card:first-child .board{flex:1;min-height:0;overflow-y:auto}
+.v-main > .card:first-child .v-slead{flex:none}

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents, setConnected, getPactOffers, getAvatarsByNames, updateAccountAvatar, renamePlayer } from "../../../lib/roomApi";
+import { getRoomByCode, getPlayers, joinRoom, submitMove, subscribeRoom, getEvents, setConnected, getPactOffers, getAvatarsByNames, updateAccountAvatar, renamePlayer, getMovedPlayerIds } from "../../../lib/roomApi";
 import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, ROUNDS, rageStage } from "../../../lib/game";
 import Chronicle from "../../_components/Chronicle";
@@ -56,6 +56,7 @@ export default function PlayPage() {
   const [events, setEvents] = useState([]);
   const [giftToast, setGiftToast] = useState(null);
   const [pactOffers, setPactOffers] = useState([]);
+  const [movedIds, setMovedIds] = useState([]);
   const [denied, setDenied] = useState([]);
   const lastGift = useRef(undefined);
   const giftTimer = useRef(null);
@@ -105,6 +106,7 @@ export default function PlayPage() {
     if (fresh) setRoom(fresh);
     const ps = await getPlayers(r.id);
     setPlayers(ps);
+    try { setMovedIds(fresh && fresh.status === "active" ? await getMovedPlayerIds(r.id, fresh.round) : []); } catch (e) {}
     // pull profile pictures from accounts by username (works even without a players.avatar_url column)
     const humanNames = ps.filter((p) => !p.is_bot).map((p) => p.name);
     if (humanNames.length) { try { setAvatars(await getAvatarsByNames(humanNames)); } catch (e) {} }
@@ -394,6 +396,9 @@ export default function PlayPage() {
               <div className="av" style={{ fontSize: 14 }}>{i + 1}</div>
               <div className="who"><b><Avatar url={av(p)} emoji={p.avatar} size={22} /> {p.name}</b>
                 {scorchedNames.has(p.name) && <span className="badge b-scorch">🔥</span>}
+                {room.status === "active" && !p.is_bot && (movedIds.includes(p.id)
+                  ? <span className="badge b-ready">✓ ready</span>
+                  : <span className="badge b-waiting">… choosing</span>)}
               </div>
               <div style={{ textAlign: "right" }}>
                 <div className="g">{fmt(p.gold)} ◈</div>

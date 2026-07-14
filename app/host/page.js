@@ -11,6 +11,7 @@ import { supabase, hasSupabase } from "../../lib/supabaseClient";
 import { ROUNDS, rageTier, fmt, rageStage, GIFT_ORDER, GIFT_META, narrationLine, dragonScorchLine, narrationDur, narrationIndexAt } from "../../lib/game";
 import Chronicle from "../_components/Chronicle";
 import Avatar from "../_components/Avatar";
+import SeasonLeaders from "../_components/SeasonLeaders";
 
 const DIRECTOR = [
   ["meteor","☄️ Meteor Shower"],["double","✨ Double Rewards"],
@@ -216,6 +217,7 @@ export default function HostPage() {
   }
 
   const audioRef = useRef(null);
+  const audioCtxRef = useRef(null);
   const SILENT_WAV = "data:audio/wav;base64,UklGRmQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==";
   function primeAudio() {
     // Called during a click gesture so the browser will allow later programmatic playback.
@@ -227,6 +229,46 @@ export default function HostPage() {
       a.src = SILENT_WAV;
       const p = a.play();
       if (p && p.then) p.then(() => { try { a.pause(); a.currentTime = 0; } catch (e) {} }).catch(() => {});
+    } catch (e) {}
+    // Unlock a Web Audio context here too (during the gesture) so the applause can play later.
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) {
+        if (!audioCtxRef.current) audioCtxRef.current = new AC();
+        if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
+      }
+    } catch (e) {}
+  }
+  // Synthesized crowd applause — no audio file needed. Fires when a recap finishes.
+  function playApplause(big = false) {
+    try {
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === "suspended") ctx.resume();
+      const now = ctx.currentTime;
+      const dur = big ? 3.2 : 2.2;
+      const claps = big ? 220 : 140;
+      const peak = big ? 0.6 : 0.45;
+      const master = ctx.createGain();
+      master.connect(ctx.destination);
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(peak, now + 0.28);
+      master.gain.setValueAtTime(peak, now + dur - 0.9);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      const sr = ctx.sampleRate;
+      for (let i = 0; i < claps; i++) {
+        const t = now + Math.random() * (dur - 0.35);
+        const len = 0.025 + Math.random() * 0.04;
+        const buf = ctx.createBuffer(1, Math.max(1, Math.ceil(len * sr)), sr);
+        const d = buf.getChannelData(0);
+        for (let j = 0; j < d.length; j++) d[j] = (Math.random() * 2 - 1) * Math.pow(1 - j / d.length, 2);
+        const src = ctx.createBufferSource(); src.buffer = buf;
+        const bp = ctx.createBiquadFilter(); bp.type = "bandpass";
+        bp.frequency.value = 1400 + Math.random() * 2600; bp.Q.value = 0.6;
+        const g = ctx.createGain(); g.gain.value = 0.05 + Math.random() * 0.08;
+        src.connect(bp); bp.connect(g); g.connect(master);
+        src.start(t);
+      }
     } catch (e) {}
   }
   function stopAudio() {
@@ -343,6 +385,7 @@ export default function HostPage() {
         if (closed) return; closed = true;
         clearInterval(iv);
         stopAudio();
+        playApplause(!!nar.ended); // round of applause once the recap finishes reading
         finishNarration(); // opens the window; leaves the payload for the overlay to expire
         return;
       }
@@ -655,6 +698,9 @@ export default function HostPage() {
         <div className="panel" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div><div className="label">The Hoard</div><div style={{ fontSize: 11, color: "var(--ash)" }}>Gold left to plunder</div></div>
           <div className="g" style={{ fontFamily: "'Cinzel',serif", fontSize: 24 }}>{fmt(room.hoard)} ◈</div>
+        </div>
+        <div className="panel">
+          <SeasonLeaders limit={5} />
         </div>
       </div>
 
