@@ -717,10 +717,12 @@ export default function HostPage() {
             ))}
           </div>
         </div>
-        <div className="panel logpanel">
-          <div className="label" style={{ marginBottom: 10 }}>📜 Chronicle</div>
-          <Chronicle events={events} />
-        </div>
+      </div>
+
+      {/* full-width move log under everything — scroll to see the whole game */}
+      <div className="host-chron panel logpanel">
+        <div className="label" style={{ marginBottom: 10 }}>📜 Chronicle — full move history</div>
+        <Chronicle events={events} />
       </div>
 
       {/* dock: run controls */}
