@@ -64,7 +64,7 @@ export default function GiftGuide() {
       <div className="go-head">
         <span className="live-pill"><span className="dot" />LIVE</span>
         <h1>HOARDBOUND · POWER-UPS</h1>
-        <div className="go-sub">Send a gift to change the game — every effect hits a random hunter</div>
+        <div className="go-sub">Only these gifts change the game — every effect hits a random hunter</div>
       </div>
 
       {layout === "horizontal" ? (
