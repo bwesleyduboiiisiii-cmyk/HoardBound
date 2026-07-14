@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 // TikTok gift name (or our own key) -> internal gift type
 const MAP = {
-  "treasure box": "treasure_box", "treasure_box": "treasure_box",
+  "gg": "treasure_box", "treasure_box": "treasure_box",
   "lightning bolt": "lightning_bolt", "lightning_bolt": "lightning_bolt",
   "a shard of hope": "shard_hope", "shard of hope": "shard_hope", "shard_hope": "shard_hope",
   "chili": "dragons_breath", "dragon's breath": "dragons_breath", "dragons breath": "dragons_breath", "dragons_breath": "dragons_breath",
@@ -37,10 +37,14 @@ export async function POST(req) {
     }
     const code = String(body.roomCode || body.code || "").toUpperCase();
     const key = String(body.giftType || body.gift || "").toLowerCase();
-    // Known gifts fire their specific power; every OTHER gift still does a small generic effect.
-    const gift = MAP[key] || (key ? "generic" : null);
-    if (!code || !gift) {
-      return NextResponse.json({ error: "need roomCode and a giftType" }, { status: 400 });
+    if (!code) {
+      return NextResponse.json({ error: "need roomCode" }, { status: 400 });
+    }
+    // ONLY the mapped power-up gifts affect the game. Any other gift is accepted
+    // (so senders aren't errored out) but does nothing — no generic fallback.
+    const gift = MAP[key] || null;
+    if (!gift) {
+      return NextResponse.json({ ok: true, ignored: true, reason: "not a power-up gift" });
     }
     const quantity = Math.max(1, Math.min(50, Number(body.quantity) || 1));
     const sender = (body.sender || "A viewer").toString().slice(0, 24);

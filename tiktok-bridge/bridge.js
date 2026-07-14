@@ -22,7 +22,7 @@ const DEBUG  = !!process.env.DEBUG_GIFTS;
 
 // TikTok gift name -> our gift type. Matched case-insensitively. Add rows to enable more.
 const GIFTS = {
-  "treasure box": "treasure_box", "lightning bolt": "lightning_bolt", "a shard of hope": "shard_hope",
+  "gg": "treasure_box", "lightning bolt": "lightning_bolt", "a shard of hope": "shard_hope",
   "chili": "dragons_breath", "spinning soccer": "claw_swipe", "gold boxing gloves": "tail_lash",
   "rosa": "wing_gust", "smores": "ember_storm", "s'mores": "ember_storm", "confetti": "fireball",
   "panther paws": "scorch_earth", "pirate's treasure": "pirates_treasure", "money gun": "money_gun",
@@ -145,14 +145,12 @@ conn.on(EV_GIFT, (d) => {
   if (isDuplicate(dedupeKey)) return;
 
   const mapped = (name && GIFTS[name.toLowerCase()]) || (giftId && GIFTS_BY_ID[giftId]) || null;
-  const giftType = mapped || "generic"; // never forward a bare "ERROR"
-  const label = mapped ? `${mapped}` : name ? `${name} (unmapped→generic)` : giftId ? `#${giftId} (unmapped→generic)` : "unknown (→generic)";
-
-  if (!mapped && (DEBUG || !name)) {
-    console.log(`  ↳ couldn't map this gift — name=${JSON.stringify(name)} id=${giftId}. Add it to GIFTS or GIFTS_BY_ID for a specific power.`);
+  if (!mapped) {
+    // Not a power-up gift — ignore it entirely. Only mapped gifts affect the game.
+    console.log(`  · ignored (not a power-up): ${name || (giftId ? "#" + giftId : "unknown")} from ${sender}`);
+    return;
   }
-
-  post({ giftType, quantity, sender }, label);
+  post({ giftType: mapped, quantity, sender }, mapped);
 });
 
 conn.on(EV_CHAT, (d) => {

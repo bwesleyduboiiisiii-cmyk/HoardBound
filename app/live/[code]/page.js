@@ -260,7 +260,7 @@ export default function LivePage() {
         {chats.length === 0 ? (
           <div className="v-chat-empty">💬 Live chat will appear here…</div>
         ) : (
-          <div className="v-chat-track" style={{ animationDuration: `${Math.max(30, chats.length * 5)}s` }}>
+          <div className="v-chat-track" style={{ animationDuration: `${Math.max(120, chats.length * 24)}s` }}>
             {[...chats, ...(chats.length >= 6 ? chats : [])].map((c, i) => (
               <span key={c.id + "-" + i} className="v-chat-msg"><span className="u">{c.name}</span>{c.text}</span>
             ))}
