@@ -6,6 +6,7 @@ import { supabase } from "../../../lib/supabaseClient";
 import { rageTier, fmt, ROUNDS, rageStage } from "../../../lib/game";
 import Chronicle from "../../_components/Chronicle";
 import Avatar from "../../_components/Avatar";
+import SeasonLeaders from "../../_components/SeasonLeaders";
 
 // Resize any uploaded image to a small square data URL (keeps DB rows tiny).
 function fileToAvatar(file, cb) {
@@ -323,7 +324,19 @@ export default function PlayPage() {
         </div>
       </div>
 
-      {room.status === "lobby" && <div className="panel waiting">You&apos;re in. Waiting for the host to begin…</div>}
+      {room.status === "lobby" && (
+        <div className="panel lobby-card">
+          <div className="lobby-title">🐉 The hunters are gathering…</div>
+          <div className="lobby-sub">Waiting for the host to begin — <b>{players.length}</b> {players.length === 1 ? "hunter" : "hunters"} at the table.</div>
+          <div className="lobby-how">
+            <div className="lh"><span>💰 Grab</span>Take a big share of the hoard — but the dragon notices the greedy.</div>
+            <div className="lh"><span>🥷 Sneak</span>Slip in and take a little, quietly.</div>
+            <div className="lh"><span>🌑 Lie Low</span>Take nothing this round and stay Warded from the fire.</div>
+            <div className="lh"><span>🤝 Pact · ⚔ Betray</span>Ally with a rival for a bonus… or turn on them.</div>
+          </div>
+          <div className="lobby-foot">Most gold when the hoard runs dry wins the hunt.</div>
+        </div>
+      )}
 
       {room.status === "active" && pactOffers
         .filter((o) => !denied.includes(o.id) && !(myMove && myMove.action === "pact" && myMove.target_id === o.id))
@@ -407,6 +420,10 @@ export default function PlayPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="panel">
+        <SeasonLeaders limit={5} />
       </div>
 
       <div className="panel">

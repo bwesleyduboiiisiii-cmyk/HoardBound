@@ -784,3 +784,13 @@ body:has(.host-wrap.cockpit)::before{
 .v-main > .card:first-child{display:flex;flex-direction:column;min-height:0}
 .v-main > .card:first-child .board{flex:1;min-height:0;overflow-y:auto}
 .v-main > .card:first-child .v-slead{flex:none}
+
+/* ---- player lobby card (waiting for host) ---- */
+.lobby-card{text-align:center}
+.lobby-title{font-family:'Cinzel',serif;font-size:19px;color:var(--gold);margin-bottom:4px}
+.lobby-sub{color:var(--ash);font-size:14px;margin-bottom:14px}
+.lobby-sub b{color:var(--bone)}
+.lobby-how{display:flex;flex-direction:column;gap:8px;text-align:left}
+.lobby-how .lh{background:rgba(20,14,30,.5);border:1px solid #241a33;border-radius:10px;padding:9px 12px;font-size:13px;color:var(--ash);line-height:1.4}
+.lobby-how .lh span{display:block;color:var(--bone);font-weight:800;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.02em;margin-bottom:2px}
+.lobby-foot{margin-top:12px;color:var(--gold);font-size:13px;font-style:italic}
